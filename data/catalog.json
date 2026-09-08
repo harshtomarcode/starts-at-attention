@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-08T01:43:31.094183+00:00",
+  "updatedAt": "2026-09-08T01:48:04.932371+00:00",
   "policy": {
     "version": 4,
     "cutoff": 4.773,
@@ -260624,10 +260624,10 @@
     "rateLimited": false,
     "error": "Unexpected citation response: list, length 49",
     "remaining": 2237,
-    "at": "2026-09-08T01:25:39.709555+00:00"
+    "at": "2026-09-08T01:48:04.932371+00:00"
   },
   "lastRun": {
-    "at": "2026-09-08T01:25:39.709555+00:00",
+    "at": "2026-09-08T01:48:04.932371+00:00",
     "discovery": true,
     "citationRefresh": true
   },
@@ -260639,7 +260639,7 @@
     "added": 0,
     "windowComplete": true,
     "totalInWindow": 0,
-    "at": "2026-09-08T01:25:39.709555+00:00"
+    "at": "2026-09-08T01:48:04.932371+00:00"
   },
   "citationEnrichment": {
     "at": "2026-09-08T01:22:30.827023+00:00",
@@ -311084,16 +311084,14 @@
     }
   },
   "authorRefresh": {
-    "at": "2026-09-08T01:37:51.355189+00:00",
-    "requestedProfiles": 5603,
-    "matchedProfiles": 5603,
+    "at": "2026-09-08T01:48:04.932371+00:00",
+    "requestedProfiles": 0,
+    "matchedProfiles": 0,
     "cachedProfiles": 5603,
-    "missingProfiles": 0,
-    "paperIdentities": 448,
     "error": null
   },
   "selectionCalibration": {
-    "at": "2026-09-08T01:43:31.094183+00:00",
+    "at": "2026-09-08T01:48:04.932371+00:00",
     "targetVisible": 800,
     "visibleCount": 799,
     "baseCutoff": 4.773,
