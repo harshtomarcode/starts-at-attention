@@ -34,7 +34,7 @@ function layout(){
  width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
  const dates=state.papers.map(p=>Date.parse(p.date));minDate=dates.length?Math.min(...dates):Date.UTC(2017,0,1);maxDate=dates.length?Math.max(...dates):Date.now();if(minDate===maxDate){minDate-=86400000;maxDate+=86400000}
  const left=width<600?48:65,lane=(width-left-22)/5,usable=Math.max(height-140,100);
- state.nodes=state.papers.map(p=>{const index=domains.findIndex(d=>d.id===p.category);let hash=0;for(const c of p.id)hash=(hash*31+c.charCodeAt(0))>>>0;return {p,color:domains[index]?.color||domains[0].color,x:left+lane*(index+.5)+((hash%1000)/999-.5)*lane*.72,y:90+(Date.parse(p.date)-minDate)/(maxDate-minDate)*usable+((hash%7)-3)*2,r:p.citationCount==null?2.8:Math.sqrt(6+148*Math.min(1,Math.log1p(p.citationCount)/Math.log1p(300000))),phase:hash*.013,fx:0,fy:0,vx:0,vy:0,lift:0}});
+ state.nodes=state.papers.map(p=>{const index=domains.findIndex(d=>d.id===p.category);let hash=0;for(const c of p.id)hash=(hash*31+c.charCodeAt(0))>>>0;return {p,color:domains[index]?.color||domains[0].color,x:left+lane*(index+.5)+((hash%1000)/999-.5)*lane*.72,y:90+(Date.parse(p.date)-minDate)/(maxDate-minDate)*usable+((hash%7)-3)*2,r:p.citationCount==null?1.6:1.4+16.6*Math.sqrt(Math.min(1,p.citationCount/100000)),phase:hash*.013,fx:0,fy:0,vx:0,vy:0,lift:0}});
  state.nodes.sort((a,b)=>(a.p.score??0)-(b.p.score??0));nodeById=new Map(state.nodes.map(n=>[n.p.id,n]));prepareScene();scheduleDraw();
 }
 function paint(){

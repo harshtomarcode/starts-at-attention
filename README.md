@@ -63,7 +63,8 @@ Unknown citation counts are never replaced with invented numbers.
 
 Solid arrows run from an earlier paper to a later paper that cites it, verified
 against the citation index. Dashed arrows are explicitly curated learning
-prerequisites. Bubble area grows logarithmically with citations, with a size cap.
+prerequisites. Bubble radius follows the square root of citation count: lightly cited papers stay
+tiny and landmarks stand out, capped at 18 CSS pixels at the default zoom.
 New discoveries remain visible as emerging candidates.
 
 The provisional impact score combines 60% log citation count, 25% log citations per

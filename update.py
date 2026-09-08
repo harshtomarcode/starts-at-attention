@@ -209,6 +209,7 @@ def refresh_citations(catalog):
                 paper["referencedArxivIds"] = [(r.get("externalIds") or {})["ArXiv"] for r in references if (r.get("externalIds") or {}).get("ArXiv")]
                 paper["referenceEvidenceComplete"] = True
             matched += 1
+        print("Citation progress:", checked, "checked of", len(papers), flush=True)
         if start + 50 < len(papers):
             time.sleep(3.1)
     catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers), "complete": matched == len(papers), "rateLimited": rate_limited, "remaining": len(papers) - checked, "at": STAMP}
@@ -226,7 +227,7 @@ def score_and_export(catalog):
     for paper in papers:
         refs = set(paper.get("referencedArxivIds", []))
         refs.update(by_s2[r] for r in paper.get("referencedPaperIds", []) if r in by_s2)
-        for ref in refs:
+        for ref in sorted(refs):
             if ref in by_arxiv and ref != paper["id"] and by_arxiv[ref]["date"] <= paper["date"]:
                 edge = {"source": ref, "target": paper["id"], "type": "citation", "provider": "Semantic Scholar", "sourceUrl": paper.get("citationSourceUrl")}
                 edges[(ref, paper["id"], "citation")] = edge
@@ -282,7 +283,7 @@ def score_and_export(catalog):
     (DATA / "details").mkdir(exist_ok=True)
     for year, records in details.items():
         (DATA / "details" / (year + ".json")).write_text(json.dumps(records, ensure_ascii=False, separators=(",", ":")) + "\n")
-    export = {"updatedAt": STAMP, "papers": index, "links": list(edges.values()),
+    export = {"updatedAt": STAMP, "papers": index, "links": sorted(edges.values(), key=lambda e: (e["source"], e["target"], e["type"])),
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
               "discovery": catalog.get("discovery"), "cutoff": cutoff}
     (DATA / "papers.json").write_text(json.dumps(export, ensure_ascii=False, separators=(",", ":")) + "\n")
@@ -312,6 +313,9 @@ def main():
     args = parser.parse_args()
     if args.limit < 1:
         parser.error("--limit must be positive")
+    if args.build and not args.discover and not args.refresh:
+        build()
+        return 0
     catalog = json.loads((DATA / "catalog.json").read_text())
     validate(catalog)
     try:
