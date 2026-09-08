@@ -4,6 +4,8 @@ A research atlas from **Attention Is All You Need** to modern LLM architectures,
 reasoning, vision, robotics, GPU systems, and benchmarks. One HTML page, one Python
 updater, no package dependencies.
 
+Public graph: **[Starts at Attention](https://harshtomarcode.github.io/starts-at-attention/)**.
+
 The entire page is the graph. Hover to inspect a paper, click to trace its lineage,
 double-click to read the original, drag a bubble to stretch its connections, drag
 the background to pan, and scroll through time. Each screen spans about seven months,
@@ -28,6 +30,15 @@ python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
 Open <http://127.0.0.1:4173/>. The deployable copy is `dist/`.
+
+## Publish publicly
+
+GitHub Pages serves the static graph without a sign-in. The `Publish research atlas`
+workflow builds `dist/` and deploys it after site or data changes on `main`, on manual
+dispatch, and after a successful `Update research atlas` run. The completion trigger
+also publishes automated data commits, which do not themselves trigger push workflows.
+Pages uses GitHub Actions as its publishing source. Only the HTML, graph export, and
+abstract detail files are included in the deployed site.
 
 ## Update daily
 
