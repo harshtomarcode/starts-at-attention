@@ -6,8 +6,10 @@ updater, no package dependencies.
 
 The entire page is the graph. Hover to inspect a paper, click to trace its lineage,
 double-click to read the original, drag a bubble to stretch its connections, drag
-the background to pan, and scroll to zoom. Double-click empty space or press Home
-to fit the graph. Arrow keys move between papers; Enter opens the selected source.
+the background to pan, and scroll through time. Each screen spans about 3½ months,
+with Text/LLMs centered and milestone captions on the right. Hold Control/Command
+while scrolling to zoom. Double-click empty space or press Home to return to
+Attention Is All You Need. Arrow keys move between papers; Enter opens the selected source.
 Reduced-motion settings disable the ambient wobble.
 
 ## Run locally
@@ -39,10 +41,10 @@ The workflow uses no paid model calls. Scheduled runs may be delayed; GitHub may
 arXiv supplies discovery, first-submission dates, authors, and abstracts. Semantic
 Scholar supplies indexed citation counts and references. Its shared unauthenticated
 API can throttle requests; an optional `SEMANTIC_SCHOLAR_API_KEY` repository secret
-or local environment variable improves access. Other source failures stop the update without replacing the saved collection.
-A citation-provider rate limit preserves successful discovery and citation batches,
+or local environment variable improves access. Discovery or local validation failures stop the update without replacing the saved
+collection. Citation-provider failures preserve successful discovery and valid batches,
 records incomplete coverage, and rotates the next run toward unchecked papers.
-No score-based demotions occur during rate-limited runs. Missing matches retain
+No score-based demotions occur during incomplete provider runs. Missing matches retain
 prior evidence.
 The daily discovery cursor resumes capped windows, with overlapping dates to catch
 indexing delays. Coverage is arXiv-focused, not an exhaustive census of AI research.

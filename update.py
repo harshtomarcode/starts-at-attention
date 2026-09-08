@@ -161,27 +161,30 @@ def refresh_citations(catalog):
     fields = "title,year,publicationDate,externalIds,citationCount,references.externalIds,references.title,url"
     matched = checked = 0
     rate_limited = False
+    provider_error = None
     for start in range(0, len(papers), 50):
         batch = papers[start:start + 50]
         ids = [p.get("semanticScholarId") or "ARXIV:" + p["id"] for p in batch]
         payload = json.dumps({"ids": ids}).encode()
         try:
             results = json.loads(request_bytes(Request(S2 + "?" + urlencode({"fields": fields}), data=payload, headers=headers)))
+            if not isinstance(results, list) or len(results) != len(batch) or any(r is not None and not isinstance(r, dict) for r in results):
+                provider_error = "Unexpected citation response: " + type(results).__name__ + ", length " + str(len(results) if hasattr(results, "__len__") else "unknown")
+                break
         except HTTPError as error:
-            if error.code != 429:
-                raise
-            rate_limited = True
-            print("::warning::Citation provider rate limited this run. Prior evidence is retained; the next run starts with papers not yet checked.")
+            rate_limited = error.code == 429
+            provider_error = "Citation provider HTTP " + str(error.code)
             break
-        if not isinstance(results, list) or len(results) != len(batch):
-            raise ValueError("Unexpected Semantic Scholar batch response")
+        except (URLError, TimeoutError, ConnectionError, json.JSONDecodeError) as error:
+            provider_error = "Citation provider unavailable: " + str(error)
+            break
         for paper, result in zip(batch, results):
             paper["citationCheckedAt"] = STAMP
             checked += 1
             if not result:
                 paper["citationFresh"] = False
                 continue
-            ext = result.get("externalIds") or {}
+            ext = result.get("externalIds") if isinstance(result.get("externalIds"), dict) else {}
             provider_id = result.get("paperId")
             pinned_match = paper.get("semanticScholarId") == provider_id
             arxiv_match = ext.get("ArXiv") == paper["id"]
@@ -203,16 +206,18 @@ def refresh_citations(catalog):
             paper.update({"semanticScholarId": provider_id, "citationCount": count,
                           "citationProvider": "Semantic Scholar", "citationUpdatedAt": STAMP,
                           "citationSourceUrl": result.get("url"), "citationFresh": True})
-            if result.get("references"):
-                references = result["references"]
+            if isinstance(result.get("references"), list) and result["references"]:
+                references = [r for r in result["references"] if isinstance(r, dict)]
                 paper["referencedPaperIds"] = [r["paperId"] for r in references if r.get("paperId")]
-                paper["referencedArxivIds"] = [(r.get("externalIds") or {})["ArXiv"] for r in references if (r.get("externalIds") or {}).get("ArXiv")]
+                paper["referencedArxivIds"] = [r["externalIds"]["ArXiv"] for r in references if isinstance(r.get("externalIds"), dict) and r["externalIds"].get("ArXiv")]
                 paper["referenceEvidenceComplete"] = True
             matched += 1
         print("Citation progress:", checked, "checked of", len(papers), flush=True)
         if start + 50 < len(papers):
             time.sleep(3.1)
-    catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers), "complete": matched == len(papers), "rateLimited": rate_limited, "remaining": len(papers) - checked, "at": STAMP}
+    if provider_error:
+        print("::warning::" + provider_error + ". Prior evidence retained; the next run starts with unchecked papers.")
+    catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers), "complete": matched == len(papers), "rateLimited": rate_limited, "error": provider_error, "remaining": len(papers) - checked, "at": STAMP}
     print("Citation refresh:", matched, "matched of", len(papers), "requested; unmatched records retain prior evidence.")
 
 
@@ -262,7 +267,7 @@ def score_and_export(catalog):
         # Cutoff is deliberately unset. New discoveries remain candidates until configured.
         if paper.get("protected"):
             paper["status"] = "active"
-        elif cutoff is not None and not catalog.get("refresh", {}).get("rateLimited") and paper.get("citationFresh") and paper["score"] is not None:
+        elif cutoff is not None and not catalog.get("refresh", {}).get("error") and paper.get("citationFresh") and paper["score"] is not None:
             paper["status"] = "active" if paper["score"] >= cutoff else "archived"
         else:
             paper["status"] = old_status
