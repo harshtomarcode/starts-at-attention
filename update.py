@@ -21,7 +21,7 @@ NOW = datetime.now(timezone.utc)
 STAMP = NOW.isoformat()
 ARXIV = "https://export.arxiv.org/api/query"
 S2 = "https://api.semanticscholar.org/graph/v1/paper/batch"
-NS = {"a": "http://www.w3.org/2005/Atom", "o": "http://a9.com/-/spec/opensearch/1.1/"}
+NS = {"a": "http://www.w3.org/2005/Atom", "o": "http://a9.com/-/spec/opensearch/1.1/", "arxiv": "http://arxiv.org/schemas/atom"}
 DOMAINS = {"text", "vision", "robotics", "systems", "benchmarks"}
 HEADERS = {"User-Agent": "StartsAtAttention/1.0 (research metadata; github.com/harshtomarcode/starts-at-attention)"}
 
@@ -61,6 +61,9 @@ def validate(catalog):
     cutoff = catalog["policy"].get("cutoff")
     if cutoff is not None and (not isinstance(cutoff, (int, float)) or not math.isfinite(cutoff) or not 0 <= cutoff <= 100):
         raise ValueError("The optional cutoff must be a number from 0 to 100")
+    for category, threshold in catalog["policy"].get("categoryCutoffs", {}).items():
+        if category not in DOMAINS or not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or not 0 <= threshold <= 100:
+            raise ValueError("Invalid category cutoff")
     for key in ("citationScale", "recentMonths"):
         value = catalog["policy"][key]
         if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
@@ -79,7 +82,7 @@ def classify(title, abstract, categories):
         return "benchmarks"
     if "cs.RO" in categories or any(term in text for term in ("robotic", "robot manipulation", "embodied")):
         return "robotics"
-    if any(term in title.lower() for term in ("gpu", "kernel", "serving", "parallelism", "quantization", "inference optimization", "distributed training", "kv cache", "kv-cache", "memory-efficient", "compiler")):
+    if any(term in title.lower() for term in ("gpu", "kernel", "serving", "parallelism", "quantization", "inference optimization", "inference acceleration", "distributed training", "kv cache", "kv-cache", "memory-efficient", "compiler", "speculative decoding", "speculative sampling", "prefill", "disaggregat", "all-reduce", "all-to-all", "collective communication", "cuda", "triton", "tensor program", "training system", "llm system")):
         return "systems"
     if "cs.CV" in categories or any(term in title.lower() for term in ("vision", "image", "visual", "video", "multimodal", "diffusion")):
         return "vision"
@@ -95,7 +98,7 @@ def discover(catalog, limit):
         last = catalog.get("lastDiscoveryAt")
         begin_date = (datetime.fromisoformat(last) if last else NOW - timedelta(days=4)) - timedelta(days=3)
         begin, end, offset = begin_date.strftime("%Y%m%d0000"), NOW.strftime("%Y%m%d2359"), 0
-    category_query = " OR ".join("cat:" + c for c in ("cs.CL", "cs.LG", "cs.CV", "cs.RO", "cs.AI", "cs.DC", "cs.PF"))
+    category_query = " OR ".join("cat:" + c for c in ("cs.CL", "cs.LG", "cs.CV", "cs.RO", "cs.AI", "cs.DC", "cs.PF", "cs.AR", "cs.PL", "cs.OS"))
     query = "(" + category_query + ") AND submittedDate:[" + begin + " TO " + end + "]"
     known = {paper["id"]: paper for paper in catalog["papers"]}
     processed = added = 0
@@ -115,6 +118,7 @@ def discover(catalog, limit):
             abstract = " ".join(entry.findtext("a:summary", "", NS).split())
             published = entry.findtext("a:published", "", NS)[:10]
             categories = [node.get("term", "") for node in entry.findall("a:category", NS)]
+            affiliations = sorted({" ".join(node.text.split()) for node in entry.findall("a:author/arxiv:affiliation", NS) if node.text})
             if not identity or not published or not title:
                 raise ValueError("Incomplete arXiv identity metadata")
             # Broad discovery, with a relevance check for general CS/ML categories.
@@ -122,7 +126,8 @@ def discover(catalog, limit):
             relevant |= any(word in (title + " " + abstract).lower() for word in (
                 "transformer", "language model", "neural network", "deep learning", "gpu",
                 "attention", "foundation model", "mixture of experts", "mixture-of-experts",
-                "reinforcement learning", "diffusion", "benchmark", "inference", "training"))
+                "reinforcement learning", "diffusion", "benchmark", "inference", "training",
+                "cuda", "triton", "tensor compiler", "tensor program", "matrix multiplication"))
             if not relevant:
                 continue
             paper = known.get(identity)
@@ -130,12 +135,14 @@ def discover(catalog, limit):
                 paper.update({"abstract": abstract, "title": title,
                               "authors": [node.findtext("a:name", "", NS) for node in entry.findall("a:author", NS)],
                               "metadataUpdatedAt": STAMP})
+                if affiliations:
+                    paper.update({"lab": " / ".join(affiliations), "affiliationSource": "https://arxiv.org/abs/" + identity})
                 continue
             paper = {
                 "id": identity, "title": title, "shortTitle": title,
                 "date": published, "dateBasis": "First arXiv submission",
                 "category": classify(title, abstract, categories), "tags": ["new research"],
-                "family": None, "lab": None,
+                "family": None, "lab": " / ".join(affiliations) or None,
                 "authors": [node.findtext("a:name", "", NS) for node in entry.findall("a:author", NS)],
                 "source": "https://arxiv.org/abs/" + identity, "abstract": abstract,
                 "summary": "", "why": "Newly discovered paper; editorial review is pending.",
@@ -143,6 +150,8 @@ def discover(catalog, limit):
                 "status": "candidate", "prerequisites": [], "discoveredAt": STAMP,
                 "metadataSource": ARXIV, "metadataUpdatedAt": STAMP,
             }
+            if affiliations:
+                paper["affiliationSource"] = paper["source"]
             catalog["papers"].append(paper)
             known[identity] = paper
             added += 1
@@ -287,9 +296,14 @@ def score_and_export(catalog):
         if paper.get("protected"):
             paper["status"] = "active"
         elif cutoff is not None and filtered_collection:
-            paper["status"] = "active" if paper["score"] is not None and paper["score"] >= cutoff else "archived"
+            threshold = policy.get("categoryCutoffs", {}).get(paper["category"], cutoff)
+            meets_score = paper["score"] is not None and paper["score"] >= threshold
+            reviewed = recent and policy.get("allowReviewedRecent", False) and paper.get("curated") and paper.get("why") and paper.get("source")
+            paper["status"] = "active" if meets_score or reviewed else "archived"
             paper["selectionPolicy"] = "recent-score"
-            paper["selectionReason"] = "Meets recent-paper cutoff" if paper["status"] == "active" else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below recent-paper cutoff"
+            paper["selectionThreshold"] = threshold
+            paper["selectionBasis"] = "score" if meets_score else "editorial" if reviewed else "pending"
+            paper["selectionReason"] = "Meets recent-paper cutoff" if meets_score else "Reviewed contribution to the learning path" if reviewed else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below recent-paper cutoff"
         else:
             paper["status"] = old_status
     visible = {p["id"] for p in papers if p["status"] != "archived"}
@@ -309,7 +323,9 @@ def score_and_export(catalog):
         " × prominence × max(0, 1 − age in months / " + str(policy["recentMonths"]) + ")). "
         "Prominence uses a sourced company affiliation, exact corporate author, or curated author match, whichever is higher; they do not stack. "
         "Unknown citations remain unknown; a reputation-only score is labeled provisional. "
-        "Recent-paper cutoff: " + str(cutoff) + ", with at least one verified citation or curated prerequisite connection to another visible paper. "
+        "Recent-paper cutoff: " + str(cutoff) + "; category cutoffs: " + json.dumps(policy.get("categoryCutoffs", {}), sort_keys=True) + ". "
+        "Reviewed recent contributions may also qualify without changing their measured scores. "
+        "Recent papers need at least one verified citation or curated prerequisite connection to another visible paper. "
         "Older established papers are retained; filtered papers stay hidden until they qualify.")
     catalog["papers"].sort(key=lambda p: (p["date"], p["id"]))
     details = {}
@@ -327,7 +343,8 @@ def score_and_export(catalog):
     export = {"updatedAt": STAMP, "papers": index, "links": sorted(edges.values(), key=lambda e: (e["source"], e["target"], e["type"])),
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
               "discovery": catalog.get("discovery"), "cutoff": cutoff, "policyVersion": policy["version"],
-              "recentMonths": policy["recentMonths"], "visibleCount": sum(p["status"] != "archived" for p in papers)}
+              "recentMonths": policy["recentMonths"], "categoryCutoffs": policy.get("categoryCutoffs", {}),
+              "visibleCount": sum(p["status"] != "archived" for p in papers)}
     (DATA / "papers.json").write_text(json.dumps(export, ensure_ascii=False, separators=(",", ":")) + "\n")
     if changes:
         with (DATA / "history.jsonl").open("a") as history:

@@ -10,7 +10,14 @@ the background to pan, and scroll through time. Each screen spans about seven mo
 with Text/LLMs centered and milestone captions on the right. Hold Control/Command
 while scrolling to zoom. Double-click empty space or press Home to return to
 Attention Is All You Need. Arrow keys move between papers; Enter opens the selected source.
-Reduced-motion settings disable the ambient wobble.
+Reduced-motion settings disable the ambient wobble. Category names across the top
+are hidden; bubble colors still identify the lanes.
+
+The September 8, 2026 snapshot tracks **2,238 papers**, with **663 visible**,
+including **108 from the last two years** and **44 recent systems papers**.
+This expansion added 52 source-verified papers and reviewed 27 existing entries.
+All 52 additions have retrieved citation counts; full-catalog coverage is 1,000
+of 2,238, so the remaining unknown values stay unknown.
 
 ## Run locally
 
@@ -69,7 +76,7 @@ prerequisites. Bubble radius follows the square root of the consequentiality sco
 from 1.4 to 18 CSS pixels at default zoom. Hovering shows citation points and any
 recent-paper bonus. Missing citation data appears as a hollow bubble.
 
-Policy version 2 uses a fixed, mostly linear score from 0 to 100:
+Policy version 3 uses a fixed, mostly linear score from 0 to 100:
 
 ```
 recentness = max(0, 1 - age_in_months / 24)
@@ -90,17 +97,31 @@ stay unknown: reputation can supply a provisional score, otherwise the score is
 pending. Scores are not normalized against other papers, so adding candidates does
 not lower an existing paper's score.
 
-Recent papers (under 24 months) must score **at least 4** to appear. For example, a
-new paper without a reputation signal needs 4,000 citations; a paper with a full
-reputation signal initially qualifies without indexed citations. Papers below the
-cutoff or awaiting qualifying evidence are hidden, retained in the catalog, and
-reevaluated daily. Recent papers also need a verified citation or curated
-prerequisite connection to another visible paper, keeping isolated discoveries
-out of the timeline without inventing relationships. Once a paper enters this filter, aging past two years does not
-automatically restore it. Older historical selections and protected foundations
-stay available. With the September 7 catalog, this leaves 560 visible papers out
-of 2,186 tracked. Citation coverage remains incomplete, so membership can change
-as indexing catches up.
+Recent papers (under 24 months) qualify at **0.1 points**, or **0.025 points for
+systems**. Without a reputation signal this is 100 citations, or 25 for the more
+specialized systems lane. Sourced company/author prominence can qualify a paper
+before citations accumulate. The earlier 4-point threshold proved too restrictive.
+
+Explicitly reviewed recent papers can also qualify based on their contribution to
+the learning path. These records have `curated: true`, a source, and a written
+`why`; automated discovery never assigns that status. Editorial admission does not
+inflate a citation count or score, and the tooltip labels this route. Like other
+recent papers, they need a verified citation or curated prerequisite connection to
+another visible paper. Learning prerequisites are displayed as dashed lines and
+are never presented as measured citation edges.
+
+Papers that do not qualify remain hidden, retained in the catalog, and reevaluated
+daily. Once a paper enters the filter, aging past two years does not automatically
+restore it. The editorial route expires with the recent window, after which the
+paper must meet its category's score cutoff. Older historical selections and
+protected foundations stay available. Citation coverage remains incomplete, so
+membership can change as indexing catches up.
+
+Discovery includes `cs.AR`, `cs.PL`, and `cs.OS` alongside the original AI,
+distributed computing, and performance categories. Systems classification now
+recognizes speculative decoding, prefill, disaggregation, collective communication,
+CUDA/Triton, and training systems. Explicit author affiliations supplied by arXiv
+are retained for the reputation calculation; absent affiliations remain unknown.
 
 API references: [arXiv](https://info.arxiv.org/help/api/user-manual.html),
 [Semantic Scholar](https://api.semanticscholar.org/api-docs/graph).
