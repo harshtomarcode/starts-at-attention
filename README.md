@@ -43,9 +43,9 @@ Scholar supplies indexed citation counts and references. Its shared unauthentica
 API can throttle requests; an optional `SEMANTIC_SCHOLAR_API_KEY` repository secret
 or local environment variable improves access. Discovery or local validation failures stop the update without replacing the saved
 collection. Citation-provider failures preserve successful discovery and valid batches,
-records incomplete coverage, and rotates the next run toward unchecked papers.
-No score-based demotions occur during incomplete provider runs. Missing matches retain
-prior evidence.
+record incomplete coverage, and rotate the next run toward unchecked papers. Missing
+matches retain prior evidence. Scoring and selection use that saved evidence; the
+recent-paper bonus still ages normally during an incomplete refresh.
 The daily discovery cursor resumes capped windows, with overlapping dates to catch
 indexing delays. Coverage is arXiv-focused, not an exhaustive census of AI research.
 
@@ -65,20 +65,42 @@ Unknown citation counts are never replaced with invented numbers.
 
 Solid arrows run from an earlier paper to a later paper that cites it, verified
 against the citation index. Dashed arrows are explicitly curated learning
-prerequisites. Bubble radius follows the square root of citation count: lightly cited papers stay
-tiny and landmarks stand out, capped at 18 CSS pixels at the default zoom.
-New discoveries remain visible as emerging candidates.
+prerequisites. Bubble radius follows the square root of the consequentiality score,
+from 1.4 to 18 CSS pixels at default zoom. Hovering shows citation points and any
+recent-paper bonus. Missing citation data appears as a hollow bubble.
 
-The provisional impact score combines 60% log citation count, 25% log citations per
-year (minimum age six months), 10% citations from this collection, and 5% verified
-lab relevance. Components are normalized within the current collection. This is a
-transparent starting policy, not a claim to a universal measure of importance.
+Policy version 2 uses a fixed, mostly linear score from 0 to 100:
 
-`policy.cutoff` is deliberately `null`. No automatic demotions occur until it is
-set to a score from 0 to 100. When configured, fresh citation evidence drives
-promotion/demotion; protected foundations remain visible. Demoted records and
-their edges are retained in the canonical catalog and hidden from the default graph. Editorial review,
-age-cohort comparisons, and richer paper-grounded explanations remain future work.
+```
+recentness = max(0, 1 - age_in_months / 24)
+score = min(100, citations / 1000 + 8 * prominence * recentness)
+```
+
+Prominence is the highest of a sourced publication-time company affiliation, an
+exact corporate author in sourced metadata, and a curated author weight. Companies and authors do not stack. The editable policy in
+`data/catalog.json` lists relevant labs and 25 authors, with aliases and landmark
+paper IDs documenting each author selection. Author matching uses normalized full
+names, not a claim of complete author identity disambiguation. Missing affiliation
+metadata earns no company credit; a company mentioned in a title earns none.
+This editorial signal is incomplete and adjustable, not an objective measure of merit.
+
+A qualifying newly released paper gets up to 8 bonus points, 4 after a year, and
+none after two years. Older papers rely on their measured citations. Unknown counts
+stay unknown: reputation can supply a provisional score, otherwise the score is
+pending. Scores are not normalized against other papers, so adding candidates does
+not lower an existing paper's score.
+
+Recent papers (under 24 months) must score **at least 4** to appear. For example, a
+new paper without a reputation signal needs 4,000 citations; a paper with a full
+reputation signal initially qualifies without indexed citations. Papers below the
+cutoff or awaiting qualifying evidence are hidden, retained in the catalog, and
+reevaluated daily. Recent papers also need a verified citation or curated
+prerequisite connection to another visible paper, keeping isolated discoveries
+out of the timeline without inventing relationships. Once a paper enters this filter, aging past two years does not
+automatically restore it. Older historical selections and protected foundations
+stay available. With the September 7 catalog, this leaves 560 visible papers out
+of 2,186 tracked. Citation coverage remains incomplete, so membership can change
+as indexing catches up.
 
 API references: [arXiv](https://info.arxiv.org/help/api/user-manual.html),
 [Semantic Scholar](https://api.semanticscholar.org/api-docs/graph).

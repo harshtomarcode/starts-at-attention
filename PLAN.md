@@ -12,7 +12,7 @@ Confirmed decisions:
 - Give LLM architecture updates and model development substantial depth, explicitly including DeepSeek papers and their background.
 - Keep workload optimization and Triton/CUDA kernel engineering as destinations within a parallel systems path.
 - Maintain the collection through daily discovery and updates to consequentiality scores. Support thousands of papers, with stronger visual prominence for more consequential work.
-- Use a lower consequentiality cutoff for active graph membership. The user has explicitly deferred choosing the cutoff.
+- Use a lower consequentiality cutoff for active graph membership. The initial recent-paper cutoff is 4 out of 100, chosen at the user’s request.
 
 The details below are proposed defaults, to be refined with the first paper collection.
 
@@ -29,7 +29,7 @@ Attention is the initial focus. The graph can contain independent roots and cros
 
 ## Selecting consequential papers
 
-Use direct incoming citation count for bubble size. Treat transitive descendants as a distinct potential influence measure, not as additional direct citations.
+Use the consequentiality score for bubble size, with citation points plus a temporary reputation bonus for recent work. Treat transitive descendants as a distinct potential influence measure, not as additional direct citations.
 
 Selection proceeds in three passes:
 
@@ -37,11 +37,11 @@ Selection proceeds in three passes:
 2. Review the shortlist for downstream uptake, relevance to the learning goals, and author/lab relevance. Verify use or extension of an idea before calling a citation evidence of substantive influence. Prefer publication-time affiliations over an author's current employer.
 3. Admit editorial exceptions for prerequisites and emerging contributions, and record a short reason. Keep “established impact” and “promising recent work” distinguishable.
 
-Citation impact is the main signal; lab relevance is a modest adjustment. Calibrate weighting against the pilot before committing to a numerical formula. Select for distinct changes to architecture, learning methods, capabilities, and execution. Ensure the shortlist covers the breadth of LLM development as well as systems, benchmarks, and the other domains.
+Citation impact is the main signal; author/lab relevance is a modest adjustment that fades over two years. The implemented formula and cutoff are recorded in README.md and the versioned catalog policy. Select for distinct changes to architecture, learning methods, capabilities, and execution. Ensure the shortlist covers the breadth of LLM development as well as systems, benchmarks, and the other domains.
 
 Preserve a distinction between enduring influence and recent momentum. The score should allow established work to remain consequential and newer work to gain prominence. Increased attention alone is provisional evidence, and low citation counts in newly released papers do not settle their eventual importance.
 
-Keep bubble area tied to direct citation count, as originally requested. Use the broader consequentiality score for admission, ranking, label priority, and visibility at overview scale. Display the components and freshness of the score on selection. Node weight does not change what a citation edge means.
+Use capped square-root consequentiality radii for bubble size. Use the same score for recent-paper admission, ranking, and label priority. Display the components and freshness of the score on selection. Node weight does not change what a citation edge means.
 
 ## Daily discovery and maintenance
 
@@ -51,18 +51,18 @@ Each daily update should:
 
 1. **Discover:** scan new papers and updates from primary paper repositories, conference sources, and official research groups across all agreed domains, including DeepSeek and other relevant labs. Search beyond direct citations of Attention. Use an overlapping date window and the last successful scan to catch late indexing and missed runs.
 2. **Consolidate:** resolve canonical paper identities and versions; add new candidates and enrich existing records without duplicating papers or summing overlapping citation counts.
-3. **Refresh evidence:** update citation metrics across the tracked catalog in batches and refresh relevant citation relationships. Retain earlier measurements when a source is unavailable and mark them stale; missing data must not cause a score to become zero or a paper to be removed.
+3. **Refresh evidence:** update citation metrics across the tracked catalog in batches and refresh relevant citation relationships. Retain earlier measurements when a source is unavailable and mark them stale; a failed refresh must not erase known counts. New candidates with no qualifying evidence remain hidden.
 4. **Recalculate:** recompute consequentiality for the full tracked catalog using the saved scoring policy and latest available evidence. Retain score inputs, dates, and policy version so gains and losses can be explained. Flag incomplete source coverage.
-5. **Apply membership:** promote qualifying papers and remove papers that fall below the configured exit rule from the active graph. Retain their metadata, history, and verified edges for inspection and possible re-entry. Do not invent a numerical cutoff before it is decided.
+5. **Apply membership:** promote qualifying papers and remove papers that fall below the configured exit rule from the active graph. Retain their metadata, history, and verified edges for inspection and possible re-entry. The initial threshold is 4 for recent papers, with protected foundations retained.
 6. **Update the site dataset:** generate a coherent graph update and a concise record of additions, demotions, and meaningful score changes. Retain the last complete graph if discovery or scoring is incomplete. Publish through the site's established update mechanism once one exists.
 
-New papers first enter a candidate pool. An explicitly labeled emerging-paper route can admit promising work before citation evidence accumulates; its criteria and evaluation period will be calibrated with the cutoff. Citation gains and newly indexed evidence can later move a candidate into the established graph.
+New papers first enter a candidate pool. An explicitly labeled emerging-paper route can admit promising work before citation evidence accumulates; its current route is the two-year reputation bonus and cutoff described in README.md. Citation gains and newly indexed evidence can later move a candidate into the established graph.
 
 Consider separate entry/exit boundaries or a period below the cutoff to avoid repeated removal and re-entry caused by small fluctuations. These parameters remain undecided. The Attention entry point and explicitly curated prerequisite material remain available as labeled foundations; this does not inflate their measured scores.
 
 If an intermediate paper leaves the active graph, preserve the original relationships in history. Do not connect its neighbors with a fabricated direct citation. Any displayed collapsed path must be labeled as indirect.
 
-An active Codex daily task, `daily-research-graph-update`, was created on September 7, 2026, using 9:00 a.m. local time (America/New_York) as the initial schedule. While the repository contains only planning materials, its scans will maintain `paper-inbox.md` as a sourced candidate list with scan history. Full-catalog rescoring and graph membership changes require the dataset, updater, and scoring policy to be implemented. Cutoff-based removals remain disabled until the cutoff is configured. The recurring task performs research and data maintenance within these boundaries, without using its daily runs to redesign or build the application.
+The GitHub daily updater is running. The older Codex daily task, `daily-research-graph-update`, is paused with explicit user approval to avoid duplicate scans. GitHub maintains the complete catalog, rescoring and applying membership rules on each successful update.
 
 The user wants to explore free cloud execution. GitHub Actions is the proposed hosted alternative: run a small daily metadata/scoring script on a standard Linux runner and write the refreshed dataset for the website. Standard hosted runner use is free for public repositories; GitHub Free includes 2,000 monthly minutes for private repositories, shared across account usage. A 10-minute daily job would consume about 300 minutes over 30 days; this is a planning estimate, not a measured runtime. [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 
@@ -153,10 +153,17 @@ The first expanded build contains 2,186 real papers, including 497 established s
 
 The page uses Canvas with capped square-root citation radii, gentle motion, hover feedback, draggable springs, a full-window graph with no persistent interface chrome, keyboard paper navigation, and on-demand abstract shards. The user explicitly requested removal of the header, sidebar, toolbar, and details panel. The DeepSeek path includes later architecture work through V4; LLM research and GPU systems remain parallel learning strands. Deep ELI5 lessons and practical exercises are not part of this initial atlas.
 
-The updater uses arXiv metadata plus Semantic Scholar citation evidence. OpenAlex was evaluated but is not required. Canonical Semantic Scholar IDs and explicit duplicate aliases preserve the GPipe and DeepSeek-V3 version corrections. Citation coverage remains incomplete, particularly for recent submissions. The automatic inclusion cutoff is still null; no score-based demotions are enabled. Source failures retain the previous complete saved state. A citation-provider 429 is handled separately: retain successful discovery and valid batches, record incomplete coverage, rotate to unchecked papers on the next run, and suspend score-based demotions.
+The updater uses arXiv metadata plus Semantic Scholar citation evidence. OpenAlex was evaluated but is not required. Canonical Semantic Scholar IDs and explicit duplicate aliases preserve the GPipe and DeepSeek-V3 version corrections. Citation coverage remains incomplete, particularly for recent submissions. The recent-paper cutoff is now 4/100 under policy version 2. Source failures preserve saved evidence and successful batches, record incomplete coverage, and rotate to unchecked papers next time. Membership uses the retained evidence, while the reputation bonus continues to age normally.
 
-The user requested stronger bubble-size contrast after the graph-only layout. Radius now ranges from 1.4 to 18 CSS pixels at default zoom, following the square root of citation count and capping at 100,000 indexed citations. Unknown counts use a small outlined dot.
+The user requested stronger bubble-size contrast after the graph-only layout. Radius now ranges from 1.4 to 18 CSS pixels at default zoom, following the square root of consequentiality and capping at 100 points. Unknown counts use a hollow bubble; a qualifying reputation-only score is labeled provisional.
 
-The final navigation is a native scrolling timeline with roughly seven months per viewport. The category order is Vision, Robotics, Text/LLMs, Systems, Benchmarks; grid lines are removed. Twenty-two sourced milestone captions accompany the scroll on the right. Normal scrolling moves through time; Control/Command-scroll zooms; Home returns to Attention Is All You Need. Provider HTTP, transport, malformed JSON, and malformed batch failures preserve valid earlier evidence and discovery, report incomplete coverage, and defer membership changes.
+The final navigation is a native scrolling timeline with roughly seven months per viewport. The category order is Vision, Robotics, Text/LLMs, Systems, Benchmarks; grid lines are removed. Twenty-two sourced milestone captions accompany the scroll on the right. Normal scrolling moves through time; Control/Command-scroll zooms; Home returns to Attention Is All You Need. Provider HTTP, transport, malformed JSON, and malformed batch failures preserve valid earlier evidence and discovery, report incomplete coverage, and preserve earlier citation measurements during rescoring.
 
 The user widened the scroll window to 6–8 months; the default is now seven months per viewport. The GitHub daily workflow completed successfully, refreshing 200 citation records before the shared provider rate limit. It preserves the other records and resumes with unchecked papers. The older Codex daily schedule is paused with explicit user approval; GitHub remains the daily updater.
+
+
+## Recent-paper selection — policy version 2
+
+The user requested a relatively linear score that gives promising new work from relevant companies or authors a temporary advantage, then relies on citations as papers age. The score is `min(100, citations / 1000 + 8 × prominence × max(0, 1 − age_months / 24))`. A sourced publication affiliation, exact corporate author, or curated author match supplies prominence; the two signals do not stack. The policy records the author list and landmark-paper evidence, and hover details show the score components. Unknown counts remain unknown.
+
+Recent papers must score at least 4 and have a verified citation or curated prerequisite connection to another visible paper to appear. Hidden records remain tracked for citation updates and later promotion. Papers already subject to the filter must still qualify after two years, so aging alone cannot revive a hidden paper. Existing older historical selections and protected foundations remain visible. The initial result is 560 visible papers out of 2,186 tracked, including 14 from the last two years; the recent tail is deliberately selective and will expand as evidence improves.

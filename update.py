@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Refresh the research catalog and build the static site. Python standard library only."""
 import argparse
-from collections import Counter
 from datetime import datetime, timedelta, timezone
 import json
 import math
@@ -62,6 +61,16 @@ def validate(catalog):
     cutoff = catalog["policy"].get("cutoff")
     if cutoff is not None and (not isinstance(cutoff, (int, float)) or not math.isfinite(cutoff) or not 0 <= cutoff <= 100):
         raise ValueError("The optional cutoff must be a number from 0 to 100")
+    for key in ("citationScale", "recentMonths"):
+        value = catalog["policy"][key]
+        if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ValueError("Invalid scoring policy: " + key)
+    bonus = catalog["policy"]["reputationBonus"]
+    if not isinstance(bonus, (int, float)) or not math.isfinite(bonus) or not 0 <= bonus <= 100:
+        raise ValueError("Invalid reputation bonus")
+    for author in catalog["policy"].get("prominentAuthors", []):
+        if not author.get("name") or not 0 <= author.get("weight", 0) <= 1 or not author.get("sourcePaperIds"):
+            raise ValueError("Prominent authors need a name, bounded weight, and evidence")
 
 
 def classify(title, abstract, categories):
@@ -221,6 +230,32 @@ def refresh_citations(catalog):
     print("Citation refresh:", matched, "matched of", len(papers), "requested; unmatched records retain prior evidence.")
 
 
+def consequentiality(paper, policy):
+    """Linear citation points plus a modest, temporary editorial reputation signal."""
+    age = max(0, (NOW.date() - datetime.strptime(paper["date"], "%Y-%m-%d").date()).days / 30.4375)
+    recentness = max(0, 1 - age / policy["recentMonths"])
+    labs = []
+    # Company credit needs a sourced affiliation or exact corporate author; titles do not.
+    if paper.get("affiliationSource"):
+        labs = [lab for lab in policy["relevantLabs"] if re.search(
+            r"(?<!\w)" + re.escape(lab.casefold()) + r"(?!\w)", (paper.get("lab") or "").casefold())]
+    names = {" ".join(name.casefold().split()) for name in paper.get("authors", [])}
+    if paper.get("metadataSource"):
+        labs = sorted(set(labs) | {lab for lab in policy["relevantLabs"] if lab.casefold() in names})
+    authors = [a for a in policy.get("prominentAuthors", []) if names.intersection(
+        " ".join(n.casefold().split()) for n in [a["name"]] + a.get("aliases", []))]
+    reputation = max([float(bool(labs))] + [a["weight"] for a in authors])
+    bonus = policy["reputationBonus"] * recentness * reputation
+    citations = paper.get("citationCount")
+    citation_points = None if citations is None else min(100, 100 * citations / policy["citationScale"])
+    score = None if citation_points is None and bonus == 0 else min(100, (citation_points or 0) + bonus)
+    return {"score": None if score is None else round(score, 4),
+            "scoreBasis": "pending" if score is None else "reputation-only" if citations is None else "citations-and-reputation" if bonus else "citations",
+            "scoreComponents": {"citationPoints": citation_points, "reputationPoints": round(bonus, 4),
+                                "recentness": round(recentness, 6), "ageMonths": round(age, 4),
+                                "prominentLabs": labs, "prominentAuthors": [a["name"] for a in authors]}}
+
+
 def score_and_export(catalog):
     papers = catalog["papers"]
     by_arxiv = {p["id"]: p for p in papers}
@@ -240,41 +275,42 @@ def score_and_export(catalog):
             identity = prerequisite if isinstance(prerequisite, str) else prerequisite["id"]
             if identity in by_arxiv and identity != paper["id"]:
                 edges[(identity, paper["id"], "prerequisite")] = {"source": identity, "target": paper["id"], "type": "prerequisite", "reason": prerequisite.get("reason", "Curated prerequisite") if isinstance(prerequisite, dict) else "Curated prerequisite"}
-    uptake = Counter(e["source"] for e in edges.values() if e["type"] == "citation")
-    weights = catalog["policy"]["weights"]
-    known = [p for p in papers if p.get("citationCount") is not None]
-    maxima = {"citations": 1.0, "citationRate": 1.0, "graphUptake": 1.0}
-    raw = {}
-    for paper in known:
-        years = max(.5, (NOW.date() - datetime.strptime(paper["date"], "%Y-%m-%d").date()).days / 365.25)
-        relevant = any(lab.lower() in (paper.get("lab") or "").lower() for lab in catalog["policy"]["relevantLabs"])
-        raw[paper["id"]] = {"citations": math.log1p(paper["citationCount"]),
-                            "citationRate": math.log1p(paper["citationCount"] / years),
-                            "graphUptake": math.log1p(uptake[paper["id"]]),
-                            "labRelevance": float(relevant)}
-        for key in maxima:
-            maxima[key] = max(maxima[key], raw[paper["id"]][key])
-    changes = []
-    cutoff = catalog["policy"].get("cutoff")
+    previous = {p["id"]: (p.get("score"), p.get("status", "candidate")) for p in papers}
+    policy = catalog["policy"]
+    cutoff = policy.get("cutoff")
     for paper in papers:
-        old_score, old_status = paper.get("score"), paper.get("status", "candidate")
-        if paper["id"] in raw:
-            components = {key: round(value / maxima.get(key, 1), 5) for key, value in raw[paper["id"]].items()}
-            paper["score"] = round(100 * sum(weights[key] * value for key, value in components.items()), 2)
-            paper["scoreComponents"] = components
-        else:
-            paper["score"] = None
-        # Cutoff is deliberately unset. New discoveries remain candidates until configured.
+        old_status = paper.get("status", "candidate")
+        paper.update(consequentiality(paper, policy))
+        recent = paper["scoreComponents"]["ageMonths"] < policy["recentMonths"]
+        # Once filtered, a paper must earn promotion; merely aging out never revives it.
+        filtered_collection = recent or paper.get("selectionPolicy") == "recent-score"
         if paper.get("protected"):
             paper["status"] = "active"
-        elif cutoff is not None and not catalog.get("refresh", {}).get("error") and paper.get("citationFresh") and paper["score"] is not None:
-            paper["status"] = "active" if paper["score"] >= cutoff else "archived"
+        elif cutoff is not None and filtered_collection:
+            paper["status"] = "active" if paper["score"] is not None and paper["score"] >= cutoff else "archived"
+            paper["selectionPolicy"] = "recent-score"
+            paper["selectionReason"] = "Meets recent-paper cutoff" if paper["status"] == "active" else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below recent-paper cutoff"
         else:
             paper["status"] = old_status
-        if old_score != paper["score"] or old_status != paper["status"]:
-            changes.append({"id": paper["id"], "score": paper["score"], "previousScore": old_score, "status": paper["status"], "previousStatus": old_status})
+    visible = {p["id"] for p in papers if p["status"] != "archived"}
+    connected = {endpoint for e in edges.values() if e["source"] in visible and e["target"] in visible
+                 for endpoint in (e["source"], e["target"])}
+    for paper in papers:
+        if (cutoff is not None and paper.get("selectionPolicy") == "recent-score"
+                and not paper.get("protected") and paper["status"] == "active" and paper["id"] not in connected):
+            paper["status"] = "archived"
+            paper["selectionReason"] = "No connection to the visible graph yet"
+    changes = [{"id": p["id"], "score": p["score"], "previousScore": previous[p["id"]][0],
+                "status": p["status"], "previousStatus": previous[p["id"]][1]}
+               for p in papers if previous[p["id"]] != (p["score"], p["status"])]
     catalog["updatedAt"] = STAMP
-    catalog["scoreDescription"] = "Provisional score: 60% log citation count, 25% log citations per year (minimum age six months), 10% citations from this collection, and 5% verified lab relevance. Components are normalized within the collection. Missing citations have no score. The permanent inclusion cutoff is not set." if cutoff is None else "Provisional score: 60% log citations, 25% age-adjusted citation rate, 10% in-graph uptake, 5% lab relevance. Configured inclusion cutoff: " + str(cutoff) + "."
+    catalog["scoreDescription"] = (
+        "Score = min(100, citations / " + str(policy["citationScale"] / 100) + " + " + str(policy["reputationBonus"]) +
+        " × prominence × max(0, 1 − age in months / " + str(policy["recentMonths"]) + ")). "
+        "Prominence uses a sourced company affiliation, exact corporate author, or curated author match, whichever is higher; they do not stack. "
+        "Unknown citations remain unknown; a reputation-only score is labeled provisional. "
+        "Recent-paper cutoff: " + str(cutoff) + ", with at least one verified citation or curated prerequisite connection to another visible paper. "
+        "Older established papers are retained; filtered papers stay hidden until they qualify.")
     catalog["papers"].sort(key=lambda p: (p["date"], p["id"]))
     details = {}
     index = []
@@ -290,7 +326,8 @@ def score_and_export(catalog):
         (DATA / "details" / (year + ".json")).write_text(json.dumps(records, ensure_ascii=False, separators=(",", ":")) + "\n")
     export = {"updatedAt": STAMP, "papers": index, "links": sorted(edges.values(), key=lambda e: (e["source"], e["target"], e["type"])),
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
-              "discovery": catalog.get("discovery"), "cutoff": cutoff}
+              "discovery": catalog.get("discovery"), "cutoff": cutoff, "policyVersion": policy["version"],
+              "recentMonths": policy["recentMonths"], "visibleCount": sum(p["status"] != "archived" for p in papers)}
     (DATA / "papers.json").write_text(json.dumps(export, ensure_ascii=False, separators=(",", ":")) + "\n")
     if changes:
         with (DATA / "history.jsonl").open("a") as history:
