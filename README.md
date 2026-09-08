@@ -13,11 +13,12 @@ Attention Is All You Need. Arrow keys move between papers; Enter opens the selec
 Reduced-motion settings disable the ambient wobble. Category names across the top
 are hidden; bubble colors still identify the lanes.
 
-The September 8, 2026 snapshot tracks **2,238 papers**, with **663 visible**,
-including **108 from the last two years** and **44 recent systems papers**.
-This expansion added 52 source-verified papers and reviewed 27 existing entries.
-All 52 additions have retrieved citation counts; full-catalog coverage is 1,000
-of 2,238, so the remaining unknown values stay unknown.
+The September 8, 2026 snapshot tracks **2,238 papers**, with **799 visible**,
+including **244 from the last two years** and **45 recent systems papers**.
+The daily updater recalibrates category thresholds toward 800 visible papers.
+Citation coverage is 1,000 of 2,238; unknown measurements remain unknown.
+Publication-linked author profiles are stored for the 448 indexed recent papers,
+with 5,603 distinct author profiles retrieved and strict publication-name checks.
 
 ## Run locally
 
@@ -73,49 +74,67 @@ Unknown citation counts are never replaced with invented numbers.
 Solid arrows run from an earlier paper to a later paper that cites it, verified
 against the citation index. Dashed arrows are explicitly curated learning
 prerequisites. Bubble radius follows the square root of the consequentiality score,
-from 1.4 to 18 CSS pixels at default zoom. Hovering shows citation points and any
-recent-paper bonus. Missing citation data appears as a hollow bubble.
+from 1.4 to 18 CSS pixels at default zoom. Hovering shows the age-dependent weights and the weighted citation and
+author/company contributions. Missing citation data appears as a hollow bubble.
 
-Policy version 3 uses a fixed, mostly linear score from 0 to 100:
+Policy version 4 uses a linear transition between two signals on a 0–100 scale:
 
 ```
-recentness = max(0, 1 - age_in_months / 24)
-score = min(100, citations / 1000 + 8 * prominence * recentness)
+citationWeight = min(1, age_in_months / 24)
+reputationWeight = 1 - citationWeight
+citationSignal = min(100, citations / 1000)
+reputationSignal = 100 * max(company, curatedAuthor, indexedAuthor)
+score = citationWeight * citationSignal + reputationWeight * reputationSignal
 ```
 
-Prominence is the highest of a sourced publication-time company affiliation, an
-exact corporate author in sourced metadata, and a curated author weight. Companies and authors do not stack. The editable policy in
-`data/catalog.json` lists relevant labs and 25 authors, with aliases and landmark
-paper IDs documenting each author selection. Author matching uses normalized full
-names, not a claim of complete author identity disambiguation. Missing affiliation
-metadata earns no company credit; a company mentioned in a title earns none.
-This editorial signal is incomplete and adjustable, not an objective measure of merit.
+At release the weights are 0% citations / 100% reputation; after six months they
+are 25% / 75%; after a year 50% / 50%; and after two years 100% / 0%. Recent papers
+therefore do not need their own citation history to gain prominence. Missing
+signals remain unknown, contribute no points, and do not transfer their unused
+weight to the other signal. Scores with no usable evidence remain pending.
 
-A qualifying newly released paper gets up to 8 bonus points, 4 after a year, and
-none after two years. Older papers rely on their measured citations. Unknown counts
-stay unknown: reputation can supply a provisional score, otherwise the score is
-pending. Scores are not normalized against other papers, so adding candidates does
-not lower an existing paper's score.
+A company signal requires a sourced publication affiliation or an exact corporate
+author. Curated author weights remain explicit in the policy. The indexed author
+signal is the strongest publication-linked author's `min(1, hIndex / 100)`.
+The maximum avoids rewarding a paper merely for having a large author list.
+Names must match the paper's arXiv author list after case and punctuation
+normalization; profiles are retrieved through publication-linked Semantic Scholar
+IDs, never a free-text author search. Initials and other unmatched aliases are
+conservatively excluded. These are reputation estimates, not proof of a new
+paper's quality, and the citation index may still have identity errors.
 
-Recent papers (under 24 months) qualify at **0.1 points**, or **0.025 points for
-systems**. Without a reputation signal this is 100 citations, or 25 for the more
-specialized systems lane. Sourced company/author prominence can qualify a paper
-before citations accumulate. The earlier 4-point threshold proved too restrictive.
+Author IDs are refreshed with paper metadata. Author metrics are refreshed weekly,
+while scores and admission thresholds are recalculated daily. Partial provider
+failures preserve earlier evidence. The canonical catalog stores author profiles
+once by ID; the browser receives only the strongest relevant profile per paper.
 
-Explicitly reviewed recent papers can also qualify based on their contribution to
-the learning path. These records have `curated: true`, a source, and a written
-`why`; automated discovery never assigns that status. Editorial admission does not
-inflate a citation count or score, and the tooltip labels this route. Like other
-recent papers, they need a verified citation or curated prerequisite connection to
-another visible paper. Learning prerequisites are displayed as dashed lines and
-are never presented as measured citation edges.
+The daily selection process searches for the cutoff producing the closest count
+to `policy.targetVisible` (800). Category cutoffs multiply that base by:
 
-Papers that do not qualify remain hidden, retained in the catalog, and reevaluated
-daily. Once a paper enters the filter, aging past two years does not automatically
-restore it. The editorial route expires with the recent window, after which the
-paper must meet its category's score cutoff. Older historical selections and
-protected foundations stay available. Citation coverage remains incomplete, so
-membership can change as indexing catches up.
+| Category | Factor | Snapshot cutoff |
+| --- | ---: | ---: |
+| Systems | 0.70 | 3.3411 |
+| Robotics | 0.90 | 4.2957 |
+| Benchmarks | 0.95 | 4.53435 |
+| Text / LLMs | 1.00 | 4.773 |
+| Vision | 1.10 | 5.2503 |
+
+Lower factors mean easier admission. This preserves the larger systems collection.
+The factors are policy choices, not empirical measures of field importance.
+Thresholds change with the catalog; the scoring equation does not normalize against
+other papers or change to fit the target. Ties, available evidence, and required
+learning material can leave the count slightly above or below 800. The updater
+does not pad the graph with unknown or zero-score discoveries to reach a quota.
+
+Older historical selections, protected foundations, and explicitly reviewed recent
+learning contributions remain available. Reviewed records require `curated: true`,
+a source, and a written `why`; automated discovery never marks papers curated.
+This exception does not inflate their measured scores. Recent papers still need a
+citation or curated learning-prerequisite connection to another visible paper;
+prerequisites remain dashed and distinct from measured citations. Editorial
+admission expires at two years, after which these papers need their category's
+score cutoff. Hidden papers remain tracked and can qualify later; aging alone
+never restores them.
 
 Discovery includes `cs.AR`, `cs.PL`, and `cs.OS` alongside the original AI,
 distributed computing, and performance categories. Systems classification now

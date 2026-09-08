@@ -64,13 +64,17 @@ def validate(catalog):
     for category, threshold in catalog["policy"].get("categoryCutoffs", {}).items():
         if category not in DOMAINS or not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or not 0 <= threshold <= 100:
             raise ValueError("Invalid category cutoff")
-    for key in ("citationScale", "recentMonths"):
+    for key in ("citationScale", "recentMonths", "authorHIndexScale"):
         value = catalog["policy"][key]
         if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
             raise ValueError("Invalid scoring policy: " + key)
-    bonus = catalog["policy"]["reputationBonus"]
-    if not isinstance(bonus, (int, float)) or not math.isfinite(bonus) or not 0 <= bonus <= 100:
-        raise ValueError("Invalid reputation bonus")
+    policy = catalog["policy"]
+    if not isinstance(policy["targetVisible"], int) or policy["targetVisible"] < 1:
+        raise ValueError("Invalid visible-paper target")
+    if not 0 < policy["minimumCutoff"] <= 100:
+        raise ValueError("Invalid minimum cutoff")
+    if set(policy["categoryFactors"]) != DOMAINS or any(not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in policy["categoryFactors"].values()):
+        raise ValueError("Every category needs a positive threshold factor")
     for author in catalog["policy"].get("prominentAuthors", []):
         if not author.get("name") or not 0 <= author.get("weight", 0) <= 1 or not author.get("sourcePaperIds"):
             raise ValueError("Prominent authors need a name, bounded weight, and evidence")
@@ -176,7 +180,7 @@ def refresh_citations(catalog):
     headers = {**HEADERS, "Content-Type": "application/json"}
     if os.environ.get("SEMANTIC_SCHOLAR_API_KEY"):
         headers["x-api-key"] = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
-    fields = "title,year,publicationDate,externalIds,citationCount,references.externalIds,references.title,url"
+    fields = "title,year,publicationDate,externalIds,citationCount,references.externalIds,references.title,url,authors"
     matched = checked = 0
     rate_limited = False
     provider_error = None
@@ -224,6 +228,9 @@ def refresh_citations(catalog):
             paper.update({"semanticScholarId": provider_id, "citationCount": count,
                           "citationProvider": "Semantic Scholar", "citationUpdatedAt": STAMP,
                           "citationSourceUrl": result.get("url"), "citationFresh": True})
+            if isinstance(result.get("authors"), list):
+                paper["semanticScholarAuthors"] = [a for a in result["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
+                paper["authorIdentitiesUpdatedAt"] = STAMP
             if isinstance(result.get("references"), list) and result["references"]:
                 references = [r for r in result["references"] if isinstance(r, dict)]
                 paper["referencedPaperIds"] = [r["paperId"] for r in references if r.get("paperId")]
@@ -239,10 +246,70 @@ def refresh_citations(catalog):
     print("Citation refresh:", matched, "matched of", len(papers), "requested; unmatched records retain prior evidence.")
 
 
-def consequentiality(paper, policy):
-    """Linear citation points plus a modest, temporary editorial reputation signal."""
+def refresh_author_reputation(catalog):
+    """Refresh publication-linked author profiles weekly; retain partial evidence."""
+    recent = [p for p in catalog["papers"] if p.get("semanticScholarId") and
+              (NOW.date() - datetime.strptime(p["date"], "%Y-%m-%d").date()).days < catalog["policy"]["recentMonths"] * 30.4375]
+    stale = (NOW - timedelta(days=7)).isoformat()
+    headers = {**HEADERS, "Content-Type": "application/json"}
+    if os.environ.get("SEMANTIC_SCHOLAR_API_KEY"):
+        headers["x-api-key"] = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
+    missing = [p for p in recent if p.get("authorIdentitiesUpdatedAt", "") < stale]
+    cache = catalog.setdefault("authorMetrics", {})
+    matched = 0
+    error = None
+    for start in range(0, len(missing), 100):
+        batch = {p["semanticScholarId"]: p for p in missing[start:start + 100]}
+        try:
+            rows = json.loads(request_bytes(Request(S2 + "?fields=externalIds,authors", data=json.dumps({"ids": list(batch)}).encode(), headers=headers)))
+            if not isinstance(rows, list):
+                raise ValueError("Unexpected paper-author response")
+            for row in rows:
+                if not isinstance(row, dict) or row.get("paperId") not in batch:
+                    continue
+                paper = batch[row["paperId"]]
+                arxiv = (row.get("externalIds") or {}).get("ArXiv")
+                if arxiv and arxiv != paper["id"]:
+                    continue
+                if isinstance(row.get("authors"), list):
+                    paper["semanticScholarAuthors"] = [a for a in row["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
+                    paper["authorIdentitiesUpdatedAt"] = STAMP
+            print("Author identity progress:", min(start + 100, len(missing)), "of", len(missing), flush=True)
+        except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
+            error = str(exc)
+            break
+        if start + 100 < len(missing):
+            time.sleep(3.1)
+    ids = sorted({a["authorId"] for p in recent for a in p.get("semanticScholarAuthors", []) if cache.get(a["authorId"], {}).get("updatedAt", "") < stale})
+    # Author profiles are looked up by IDs attached to these publications, never by a name search.
+    for start in range(0, len(ids), 500):
+        batch = ids[start:start + 500]
+        try:
+            url = "https://api.semanticscholar.org/graph/v1/author/batch?fields=name,hIndex,citationCount,paperCount,url"
+            rows = json.loads(request_bytes(Request(url, data=json.dumps({"ids": batch}).encode(), headers=headers)))
+            if not isinstance(rows, list):
+                raise ValueError("Unexpected author-profile response")
+            for author in rows:
+                if not isinstance(author, dict) or author.get("authorId") not in batch or not isinstance(author.get("hIndex"), int) or author["hIndex"] < 0:
+                    continue
+                cache[author["authorId"]] = {**author, "updatedAt": STAMP}
+                matched += 1
+            print("Author profile progress:", min(start + 500, len(ids)), "of", len(ids), flush=True)
+        except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
+            error = str(exc)
+            break
+        if start + 500 < len(ids):
+            time.sleep(3.1)
+    catalog["authorRefresh"] = {"at": STAMP, "requestedProfiles": len(ids), "matchedProfiles": matched, "cachedProfiles": len(cache), "error": error}
+    if error:
+        print("::warning::Author evidence refresh incomplete; saved profiles retained:", error)
+
+
+def consequentiality(paper, policy, author_metrics=None):
+    """Crossfade from author/company evidence at release to citations at maturity."""
     age = max(0, (NOW.date() - datetime.strptime(paper["date"], "%Y-%m-%d").date()).days / 30.4375)
-    recentness = max(0, 1 - age / policy["recentMonths"])
+    citation_weight = min(1, age / policy["recentMonths"])
+    reputation_weight = 1 - citation_weight
     labs = []
     # Company credit needs a sourced affiliation or exact corporate author; titles do not.
     if paper.get("affiliationSource"):
@@ -253,16 +320,32 @@ def consequentiality(paper, policy):
         labs = sorted(set(labs) | {lab for lab in policy["relevantLabs"] if lab.casefold() in names})
     authors = [a for a in policy.get("prominentAuthors", []) if names.intersection(
         " ".join(n.casefold().split()) for n in [a["name"]] + a.get("aliases", []))]
-    reputation = max([float(bool(labs))] + [a["weight"] for a in authors])
-    bonus = policy["reputationBonus"] * recentness * reputation
+    metrics = author_metrics or {}
+    publication_names = {re.sub(r"\W+", "", name) for name in names}
+    indexed = [metrics[a["authorId"]] for a in paper.get("semanticScholarAuthors", []) if a.get("authorId") in metrics
+               and re.sub(r"\W+", "", a["name"].casefold()) in publication_names
+               and re.sub(r"\W+", "", metrics[a["authorId"]]["name"].casefold()) in publication_names]
+    strongest = max(indexed, key=lambda a: (a["hIndex"], a["authorId"]), default=None)
+    signals = ([1] if labs else []) + [a["weight"] for a in authors]
+    if strongest:
+        signals.append(min(1, strongest["hIndex"] / policy["authorHIndexScale"]))
+    reputation_signal = 100 * max(signals) if signals else None
     citations = paper.get("citationCount")
-    citation_points = None if citations is None else min(100, 100 * citations / policy["citationScale"])
-    score = None if citation_points is None and bonus == 0 else min(100, (citation_points or 0) + bonus)
+    citation_signal = None if citations is None else min(100, 100 * citations / policy["citationScale"])
+    citation_points = None if citation_signal is None else citation_weight * citation_signal
+    reputation_points = None if reputation_signal is None else reputation_weight * reputation_signal
+    has_citations = citation_signal is not None and citation_weight > 0
+    has_reputation = reputation_signal is not None and reputation_weight > 0
+    score = min(100, (citation_points or 0) + (reputation_points or 0)) if has_citations or has_reputation else None
     return {"score": None if score is None else round(score, 4),
-            "scoreBasis": "pending" if score is None else "reputation-only" if citations is None else "citations-and-reputation" if bonus else "citations",
-            "scoreComponents": {"citationPoints": citation_points, "reputationPoints": round(bonus, 4),
-                                "recentness": round(recentness, 6), "ageMonths": round(age, 4),
-                                "prominentLabs": labs, "prominentAuthors": [a["name"] for a in authors]}}
+            "scoreBasis": "pending" if score is None else "citations-and-reputation" if has_citations and has_reputation else "reputation-only" if has_reputation else "citations",
+            "scoreComponents": {"citationPoints": None if citation_points is None else round(citation_points, 6),
+                                "reputationPoints": None if reputation_points is None else round(reputation_points, 6),
+                                "citationSignal": citation_signal, "reputationSignal": reputation_signal,
+                                "citationWeight": round(citation_weight, 6), "reputationWeight": round(reputation_weight, 6),
+                                "recentness": round(reputation_weight, 6), "ageMonths": round(age, 4),
+                                "prominentLabs": labs, "prominentAuthors": [a["name"] for a in authors],
+                                "indexedAuthor": strongest}}
 
 
 def score_and_export(catalog):
@@ -286,54 +369,82 @@ def score_and_export(catalog):
                 edges[(identity, paper["id"], "prerequisite")] = {"source": identity, "target": paper["id"], "type": "prerequisite", "reason": prerequisite.get("reason", "Curated prerequisite") if isinstance(prerequisite, dict) else "Curated prerequisite"}
     previous = {p["id"]: (p.get("score"), p.get("status", "candidate")) for p in papers}
     policy = catalog["policy"]
-    cutoff = policy.get("cutoff")
+    fixed, reviewed = set(), set()
     for paper in papers:
-        old_status = paper.get("status", "candidate")
-        paper.update(consequentiality(paper, policy))
+        paper.update(consequentiality(paper, policy, catalog.get("authorMetrics", {})))
         recent = paper["scoreComponents"]["ageMonths"] < policy["recentMonths"]
-        # Once filtered, a paper must earn promotion; merely aging out never revives it.
-        filtered_collection = recent or paper.get("selectionPolicy") == "recent-score"
-        if paper.get("protected"):
-            paper["status"] = "active"
-        elif cutoff is not None and filtered_collection:
-            threshold = policy.get("categoryCutoffs", {}).get(paper["category"], cutoff)
-            meets_score = paper["score"] is not None and paper["score"] >= threshold
-            reviewed = recent and policy.get("allowReviewedRecent", False) and paper.get("curated") and paper.get("why") and paper.get("source")
-            paper["status"] = "active" if meets_score or reviewed else "archived"
+        filtered = recent or paper.get("selectionPolicy") == "recent-score"
+        if paper.get("protected") or (not filtered and paper.get("status") != "archived"):
+            fixed.add(paper["id"])
+        elif recent and policy.get("allowReviewedRecent") and paper.get("curated") and paper.get("why") and paper.get("source"):
+            reviewed.add(paper["id"])
+        if filtered:
             paper["selectionPolicy"] = "recent-score"
-            paper["selectionThreshold"] = threshold
-            paper["selectionBasis"] = "score" if meets_score else "editorial" if reviewed else "pending"
-            paper["selectionReason"] = "Meets recent-paper cutoff" if meets_score else "Reviewed contribution to the learning path" if reviewed else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below recent-paper cutoff"
+    factors = policy["categoryFactors"]
+    optional = [p for p in papers if p["id"] not in fixed | reviewed and p.get("selectionPolicy") == "recent-score" and p["score"] is not None]
+
+    def admitted(base):
+        thresholds = {category: round(min(100, base * factor), 6) for category, factor in factors.items()}
+        eligible = fixed | reviewed | {p["id"] for p in optional if p["score"] >= thresholds[p["category"]]}
+        connected = {endpoint for e in edges.values() if e["source"] in eligible and e["target"] in eligible
+                     for endpoint in (e["source"], e["target"])}
+        return fixed | (eligible & connected)
+
+    # Find the category-adjusted score boundary closest to the visible-paper target.
+    # This changes admission, never the underlying score or missing evidence.
+    levels = sorted({policy["minimumCutoff"], 100.0} | {
+        round(max(policy["minimumCutoff"], min(100, p["score"] / factors[p["category"]])), 6) for p in optional})
+    low, high = 0, len(levels) - 1
+    best = None
+    while low <= high:
+        mid = (low + high) // 2
+        base = levels[mid]
+        selected = admitted(base)
+        count = len(selected)
+        quality = (abs(count - policy["targetVisible"]), count > policy["targetVisible"], -base)
+        if best is None or quality < best[0]:
+            best = (quality, base, selected)
+        if count > policy["targetVisible"]:
+            low = mid + 1
         else:
-            paper["status"] = old_status
-    visible = {p["id"] for p in papers if p["status"] != "archived"}
-    connected = {endpoint for e in edges.values() if e["source"] in visible and e["target"] in visible
-                 for endpoint in (e["source"], e["target"])}
+            high = mid - 1
+    cutoff, visible = best[1], best[2]
+    policy["cutoff"] = cutoff
+    policy["categoryCutoffs"] = {category: round(min(100, cutoff * factor), 6) for category, factor in factors.items()}
     for paper in papers:
-        if (cutoff is not None and paper.get("selectionPolicy") == "recent-score"
-                and not paper.get("protected") and paper["status"] == "active" and paper["id"] not in connected):
-            paper["status"] = "archived"
-            paper["selectionReason"] = "No connection to the visible graph yet"
+        paper["status"] = "active" if paper["id"] in visible else "archived"
+        if paper["id"] in fixed:
+            paper["selectionBasis"] = "foundation" if paper.get("protected") else "historical"
+            continue
+        threshold = policy["categoryCutoffs"][paper["category"]]
+        meets_score = paper["score"] is not None and paper["score"] >= threshold
+        paper["selectionThreshold"] = threshold
+        paper["selectionBasis"] = "score" if meets_score else "editorial" if paper["id"] in reviewed else "pending"
+        paper["selectionReason"] = ("No connection to the visible graph yet" if (meets_score or paper["id"] in reviewed) and paper["id"] not in visible
+                                    else "Meets category cutoff" if meets_score else "Reviewed contribution to the learning path" if paper["id"] in reviewed
+                                    else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below category cutoff")
+    catalog["selectionCalibration"] = {"at": STAMP, "targetVisible": policy["targetVisible"], "visibleCount": len(visible),
+                                       "baseCutoff": cutoff, "categoryCutoffs": policy["categoryCutoffs"],
+                                       "categoryCounts": {category: sum(p["id"] in visible and p["category"] == category for p in papers) for category in sorted(DOMAINS)}}
     changes = [{"id": p["id"], "score": p["score"], "previousScore": previous[p["id"]][0],
                 "status": p["status"], "previousStatus": previous[p["id"]][1]}
                for p in papers if previous[p["id"]] != (p["score"], p["status"])]
     catalog["updatedAt"] = STAMP
     catalog["scoreDescription"] = (
-        "Score = min(100, citations / " + str(policy["citationScale"] / 100) + " + " + str(policy["reputationBonus"]) +
-        " × prominence × max(0, 1 − age in months / " + str(policy["recentMonths"]) + ")). "
-        "Prominence uses a sourced company affiliation, exact corporate author, or curated author match, whichever is higher; they do not stack. "
-        "Unknown citations remain unknown; a reputation-only score is labeled provisional. "
-        "Recent-paper cutoff: " + str(cutoff) + "; category cutoffs: " + json.dumps(policy.get("categoryCutoffs", {}), sort_keys=True) + ". "
-        "Reviewed recent contributions may also qualify without changing their measured scores. "
-        "Recent papers need at least one verified citation or curated prerequisite connection to another visible paper. "
-        "Older established papers are retained; filtered papers stay hidden until they qualify.")
+        "Score = citationWeight × citationSignal + reputationWeight × reputationSignal. "
+        "Citation weight rises linearly from 0 at release to 1 at " + str(policy["recentMonths"]) + " months; reputation weight is its complement. "
+        "Citation signal = min(100, citations × 100 / " + str(policy["citationScale"]) + "). "
+        "Reputation uses the strongest sourced company affiliation, curated author, or publication-linked author h-index / " + str(policy["authorHIndexScale"]) + ", scaled to 100; signals do not stack. "
+        "Missing signals remain unknown and their weights are not reassigned. "
+        "Category cutoffs are recalibrated toward " + str(policy["targetVisible"]) + " visible papers. "
+        "Historical selections, protected foundations and reviewed recent learning contributions remain available; recent nodes require a citation or curated prerequisite connection.")
     catalog["papers"].sort(key=lambda p: (p["date"], p["id"]))
     details = {}
     index = []
     for paper in catalog["papers"]:
         year = paper["date"][:4]
         details.setdefault(year, {})[paper["id"]] = {"abstract": paper.get("abstract"), "metadataSource": paper.get("metadataSource"), "dateBasis": paper.get("dateBasis"), "affiliationSource": paper.get("affiliationSource")}
-        drop = {"abstract", "referencedPaperIds", "referencedArxivIds", "semanticScholarAliases", "metadataSource", "affiliationSource", "releaseDateSource", "referenceEvidenceComplete"}
+        drop = {"abstract", "referencedPaperIds", "referencedArxivIds", "semanticScholarAliases", "metadataSource", "affiliationSource", "releaseDateSource", "referenceEvidenceComplete", "semanticScholarAuthors", "authorIdentitiesUpdatedAt"}
         record = {key: value for key, value in paper.items() if key not in drop}
         record["detailFile"] = "./data/details/" + year + ".json"
         index.append(record)
@@ -344,7 +455,7 @@ def score_and_export(catalog):
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
               "discovery": catalog.get("discovery"), "cutoff": cutoff, "policyVersion": policy["version"],
               "recentMonths": policy["recentMonths"], "categoryCutoffs": policy.get("categoryCutoffs", {}),
-              "visibleCount": sum(p["status"] != "archived" for p in papers)}
+              "visibleCount": sum(p["status"] != "archived" for p in papers), "selectionCalibration": catalog["selectionCalibration"]}
     (DATA / "papers.json").write_text(json.dumps(export, ensure_ascii=False, separators=(",", ":")) + "\n")
     if changes:
         with (DATA / "history.jsonl").open("a") as history:
@@ -381,6 +492,7 @@ def main():
         if args.discover:
             discover(catalog, args.limit)
         if args.refresh:
+            refresh_author_reputation(catalog)
             refresh_citations(catalog)
         validate(catalog)
     except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError) as error:
