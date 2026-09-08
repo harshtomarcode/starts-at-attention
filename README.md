@@ -4,12 +4,11 @@ A research atlas from **Attention Is All You Need** to modern LLM architectures,
 reasoning, vision, robotics, GPU systems, and benchmarks. One HTML page, one Python
 updater, no package dependencies.
 
-Open a bubble to see the paper, its abstract, citation evidence, and learning
-prerequisites. Search by title, idea, author, or model family. Use **Latest 90 days**
-for recent research, **Established collection** for the historical shortlist, or
-**List** for keyboard access. Drag a bubble to stretch its connections and let it
-spring back; drag the background to pan and scroll to zoom. Reduced-motion settings
-disable the ambient wobble.
+The entire page is the graph. Hover to inspect a paper, click to trace its lineage,
+double-click to read the original, drag a bubble to stretch its connections, drag
+the background to pan, and scroll to zoom. Double-click empty space or press Home
+to fit the graph. Arrow keys move between papers; Enter opens the selected source.
+Reduced-motion settings disable the ambient wobble.
 
 ## Run locally
 
@@ -40,8 +39,11 @@ The workflow uses no paid model calls. Scheduled runs may be delayed; GitHub may
 arXiv supplies discovery, first-submission dates, authors, and abstracts. Semantic
 Scholar supplies indexed citation counts and references. Its shared unauthenticated
 API can throttle requests; an optional `SEMANTIC_SCHOLAR_API_KEY` repository secret
-or local environment variable improves access. A source failure stops the update
-without replacing the saved collection. Missing matches retain prior evidence.
+or local environment variable improves access. Other source failures stop the update without replacing the saved collection.
+A citation-provider rate limit preserves successful discovery and citation batches,
+records incomplete coverage, and rotates the next run toward unchecked papers.
+No score-based demotions occur during rate-limited runs. Missing matches retain
+prior evidence.
 The daily discovery cursor resumes capped windows, with overlapping dates to catch
 indexing delays. Coverage is arXiv-focused, not an exhaustive census of AI research.
 
@@ -72,7 +74,7 @@ transparent starting policy, not a claim to a universal measure of importance.
 `policy.cutoff` is deliberately `null`. No automatic demotions occur until it is
 set to a score from 0 to 100. When configured, fresh citation evidence drives
 promotion/demotion; protected foundations remain visible. Demoted records and
-their edges are retained, accessible through **Below cutoff**. Editorial review,
+their edges are retained in the canonical catalog and hidden from the default graph. Editorial review,
 age-cohort comparisons, and richer paper-grounded explanations remain future work.
 
 API references: [arXiv](https://info.arxiv.org/help/api/user-manual.html),

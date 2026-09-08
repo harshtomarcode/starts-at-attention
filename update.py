@@ -151,19 +151,33 @@ def discover(catalog, limit):
 
 def refresh_citations(catalog):
     papers = [p for p in catalog["papers"] if p.get("semanticScholarId") or re.fullmatch(r"\d{4}\.\d{4,5}", p["id"])]
+    # Rotate through the collection when the shared provider stops a run early.
+    papers.sort(key=lambda p: (p.get("citationCheckedAt", ""), -(p.get("citationCount") or 0)))
+    for paper in papers:
+        paper["citationFresh"] = False
     headers = {**HEADERS, "Content-Type": "application/json"}
     if os.environ.get("SEMANTIC_SCHOLAR_API_KEY"):
         headers["x-api-key"] = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
     fields = "title,year,publicationDate,externalIds,citationCount,references.externalIds,references.title,url"
-    matched = 0
+    matched = checked = 0
+    rate_limited = False
     for start in range(0, len(papers), 50):
         batch = papers[start:start + 50]
         ids = [p.get("semanticScholarId") or "ARXIV:" + p["id"] for p in batch]
         payload = json.dumps({"ids": ids}).encode()
-        results = json.loads(request_bytes(Request(S2 + "?" + urlencode({"fields": fields}), data=payload, headers=headers)))
+        try:
+            results = json.loads(request_bytes(Request(S2 + "?" + urlencode({"fields": fields}), data=payload, headers=headers)))
+        except HTTPError as error:
+            if error.code != 429:
+                raise
+            rate_limited = True
+            print("::warning::Citation provider rate limited this run. Prior evidence is retained; the next run starts with papers not yet checked.")
+            break
         if not isinstance(results, list) or len(results) != len(batch):
             raise ValueError("Unexpected Semantic Scholar batch response")
         for paper, result in zip(batch, results):
+            paper["citationCheckedAt"] = STAMP
+            checked += 1
             if not result:
                 paper["citationFresh"] = False
                 continue
@@ -197,7 +211,7 @@ def refresh_citations(catalog):
             matched += 1
         if start + 50 < len(papers):
             time.sleep(3.1)
-    catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "requested": len(papers), "complete": matched == len(papers), "at": STAMP}
+    catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers), "complete": matched == len(papers), "rateLimited": rate_limited, "remaining": len(papers) - checked, "at": STAMP}
     print("Citation refresh:", matched, "matched of", len(papers), "requested; unmatched records retain prior evidence.")
 
 
@@ -247,7 +261,7 @@ def score_and_export(catalog):
         # Cutoff is deliberately unset. New discoveries remain candidates until configured.
         if paper.get("protected"):
             paper["status"] = "active"
-        elif cutoff is not None and paper.get("citationFresh") and paper["score"] is not None:
+        elif cutoff is not None and not catalog.get("refresh", {}).get("rateLimited") and paper.get("citationFresh") and paper["score"] is not None:
             paper["status"] = "active" if paper["score"] >= cutoff else "archived"
         else:
             paper["status"] = old_status
