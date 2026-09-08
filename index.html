@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101313">
+<meta name="description" content="Explore the papers and ideas that shaped modern AI. A research timeline from Attention Is All You Need to modern architectures, reasoning, and efficient systems.">
+<title>Starts at Attention — A research atlas</title>
+<style>
+:root{color-scheme:dark;--bg:#101313;--panel:#151919;--raised:#1c2121;--line:#2a3230;--muted:#879591;--text:#e8eee9;--accent:#b9ee87;--text-domain:#b9ee87;--vision:#b8a5ef;--robotics:#e9ab98;--systems:#e6c477;--benchmarks:#91c6e6;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:16px}button,input,select{font:inherit}button,a,input,select{outline-offset:5px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent)}button{color:inherit;background:none;border:0;cursor:pointer}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}button:disabled{opacity:.35;cursor:default}[hidden]{display:none!important}.mono{font-family:"SFMono-Regular",Consolas,monospace}.eyebrow{font-family:"SFMono-Regular",Consolas,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}.icon{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+header{height:77px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 30px;gap:35px}.brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:650;letter-spacing:-.6px;white-space:nowrap}.brand-mark{width:30px;height:32px;position:relative}.brand-mark i{position:absolute;border:1.6px solid var(--accent);border-radius:50%;width:10px;height:10px;background:var(--bg)}.brand-mark i:nth-child(1){left:10px;top:0}.brand-mark i:nth-child(2){left:0;top:21px}.brand-mark i:nth-child(3){left:20px;top:21px}.brand-mark:before,.brand-mark:after{content:"";position:absolute;top:6px;left:14px;width:1px;height:24px;background:var(--accent);transform-origin:top;transform:rotate(26deg)}.brand-mark:after{transform:rotate(-26deg)}
+.header-note{font-size:12px;color:var(--muted);border-left:1px solid var(--line);padding-left:24px}.header-right{margin-left:auto;display:flex;align-items:center;gap:18px}.source-status{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}.status-dot{width:5px;height:5px;background:var(--accent);border-radius:50%}.source-link{font-size:13px;color:var(--text);display:flex;gap:8px;align-items:center}.workspace{display:grid;grid-template-columns:218px minmax(0,1fr);height:calc(100dvh - 77px);min-height:650px}
+aside.sidebar{border-right:1px solid var(--line);padding:26px 15px 18px;display:flex;flex-direction:column;gap:27px;overflow:auto}.sidebar .eyebrow{padding:0 13px;margin:0 0 13px}.domain-button{width:100%;padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:14px;border-radius:5px;margin:2px 0;color:#a3afa9;text-align:left}.domain-button:hover{background:var(--raised)}.domain-button.active{background:#263022;color:var(--accent)}.domain-button .count{margin-left:auto;font-family:Consolas,monospace;font-size:12px;color:var(--muted)}.domain-dot{height:7px;width:7px;border-radius:50%;background:var(--domain-color);flex-shrink:0}.path-button{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:10px 13px;width:100%;font-size:13px;color:#b2bdb7;line-height:1.5;border-radius:4px}.path-button .path-num{font-family:Consolas,monospace;color:#606e65;font-size:12px;margin-top:2px}.path-button:hover,.path-button.active{background:var(--raised);color:var(--text)}.path-button.active .path-num{color:var(--accent)}.sidebar-bottom{margin-top:auto;padding:16px 13px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.7;color:var(--muted)}.sidebar-bottom strong{color:#c3cec6;font-weight:500}
+main{min-width:0;display:flex;flex-direction:column;overflow:hidden}.intro{padding:26px 30px 21px;display:flex;align-items:flex-end;gap:20px}.intro h1{font-size:29px;letter-spacing:-1.1px;font-weight:500;margin:0 0 8px}.intro p{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}.intro .collection-total{margin-left:auto;white-space:nowrap;font-family:Consolas,monospace;font-size:12px;color:var(--muted)}.intro .collection-total b{color:var(--text);font-weight:400}
+.toolbar{padding:0 30px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.search{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:5px;height:39px;padding:0 12px;min-width:230px;flex:1;max-width:380px;color:var(--muted)}.search input{background:none;border:0;width:100%;min-width:0;outline:none;color:var(--text);font-size:13px}.search:focus-within{border-color:#88a174}.search input::placeholder{color:#77837e}.search kbd{font-size:12px;border:1px solid #37403a;border-radius:3px;padding:0 4px}.control{height:39px;background:var(--panel);border:1px solid var(--line);border-radius:5px;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;color:#b3bfb7;white-space:nowrap}.control select{background:none;color:inherit;border:none;font-size:12px;max-width:165px}.control option{background:var(--panel)}.toggle-control[aria-pressed=true]{color:var(--accent);border-color:#4c6440;background:#1e291b}.view-toggle{display:flex;margin-left:auto;border:1px solid var(--line);border-radius:5px;padding:3px;height:39px;gap:2px}.view-toggle button{padding:0 12px;font-size:12px;color:var(--muted);border-radius:3px;display:flex;gap:6px;align-items:center}.view-toggle button.active{color:var(--text);background:#2a322d}.main-body{display:flex;min-height:0;flex:1;border-top:1px solid var(--line);position:relative}.map-area{position:relative;flex:1;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#171f1a 0%,#111615 70%)}.lane-headings{height:51px;border-bottom:1px solid #28322c;display:flex;position:absolute;left:62px;right:19px;top:0;z-index:2;pointer-events:none}.lane-label{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#abb8af;overflow:hidden}.lane-label.inactive{opacity:.25}.canvas-wrap{position:absolute;inset:51px 0 36px}canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}canvas.dragging{cursor:grabbing}.map-bottom{position:absolute;bottom:0;left:0;right:0;height:36px;border-top:1px solid #263129;display:flex;align-items:center;justify-content:space-between;padding:0 17px;color:#7f9185;background:#131915;font-size:12px;gap:10px}.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.legend-item{display:flex;align-items:center;gap:5px}.legend-line{width:18px;border-top:1px solid #8f9e91}.legend-line.dashed{border-top-style:dashed}.zoom-controls{position:absolute;bottom:53px;left:18px;display:flex;border:1px solid #3b493e;border-radius:5px;overflow:hidden;background:#17201b}.zoom-controls button{width:33px;height:32px;font-size:18px;color:#bdc9be}.zoom-controls button:hover{background:#2b382c}.zoom-controls button+button{border-left:1px solid #344035}.zoom-controls .fit{font-size:13px;width:45px}.zoom-caption{position:absolute;bottom:63px;right:15px;font-size:12px;color:#718375;pointer-events:none}.map-overlay{position:absolute;left:80px;top:74px;background:#19221c;border:1px solid #364836;border-radius:4px;padding:7px 11px;font-size:12px;display:flex;align-items:center;gap:15px;z-index:4;box-shadow:0 4px 25px #0003}.map-overlay button{color:var(--accent);font-size:13px}.tooltip{position:absolute;z-index:8;pointer-events:none;padding:9px 12px;background:#252e27;border:1px solid #52624f;border-radius:5px;box-shadow:0 6px 18px #0005;max-width:280px;font-size:12px;line-height:1.6}.tooltip small{display:block;color:var(--muted)}.empty-map{position:absolute;inset:120px 30px auto;text-align:center;color:var(--muted);font-size:14px;line-height:1.8}.empty-map button{color:var(--accent);text-decoration:underline}
+.detail.closed{display:none}.detail{width:330px;flex-shrink:0;border-left:1px solid var(--line);background:#151a17;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#3c493e transparent;padding:24px 24px 30px}.detail-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.paper-category{font-size:12px;letter-spacing:.12em;text-transform:uppercase;display:flex;gap:6px;align-items:center;color:var(--domain-color)}.detail-close{color:var(--muted);font-size:21px;width:26px;height:26px}.detail h2{font-size:24px;font-weight:500;line-height:1.26;letter-spacing:-.6px;margin:0 0 12px}.authors{font-size:12px;line-height:1.65;color:var(--muted);margin:0 0 14px}.paper-date{font-family:Consolas,monospace;font-size:12px;color:#b3bdb3;display:flex;align-items:center;gap:8px;margin-bottom:21px}.paper-date .separator{color:#4f5e50}.paper-stats{display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.paper-stats .value{font-size:23px;font-family:Consolas,monospace;display:block;font-weight:400;color:#dfebdc;letter-spacing:-1px}.paper-stats .label{font-size:12px;color:var(--muted);display:block;margin-top:5px}.paper-stats>div+div{border-left:1px solid var(--line);padding-left:20px}.detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px}.tag{font-family:Consolas,monospace;font-size:12px;border:1px solid #344237;color:#b0c1af;border-radius:3px;padding:4px 6px}.paper-summary{font-size:16px;line-height:1.8;color:#c0cec0;margin:10px 0 23px}.detail-section{margin-top:23px}.detail-section .eyebrow{margin:0 0 10px;font-size:12px}.detail-section p{font-size:14px;line-height:1.8;color:#aebdaf;margin:0}.connection{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:11px 0;border-bottom:1px solid #263229}.connection .small-dot{width:5px;height:5px;background:var(--domain-color);border-radius:50%;flex-shrink:0}.connection span{font-size:12px;line-height:1.5}.connection small{display:block;font-size:12px;color:var(--muted);margin-top:2px}.connection .arrow{color:#6f866e;margin-left:auto}.connection:hover span{color:var(--accent)}.read-paper{display:flex;justify-content:center;align-items:center;gap:10px;padding:12px;font-size:13px;background:var(--accent);color:#17200e;border-radius:4px;margin:24px 0 12px;font-weight:550}.read-paper:hover{background:#cef5ac;text-decoration:none}.citation-note{font-size:12px!important;color:#7d8f7d!important;line-height:1.6!important}.abstract-details{border-top:1px solid var(--line);padding-top:16px;margin-top:22px}.abstract-details summary{cursor:pointer;color:#b7c7b6;font-size:12px}.abstract-details p{font-size:14px;line-height:1.8;color:#a4b3a3;margin-top:12px}.detail-empty{color:var(--muted);font-size:14px;line-height:1.8;padding-top:30px}
+.list-area{flex:1;overflow-y:auto;padding:12px 25px;background:#131815}.paper-row{display:grid;grid-template-columns:65px 1fr 65px;gap:15px;align-items:center;width:100%;padding:18px 7px;border-bottom:1px solid #29352c;text-align:left}.paper-row:hover,.paper-row.active{background:#1e281f}.paper-row .year{font-family:Consolas,monospace;color:#94a48f;font-size:12px}.paper-row h3{font-size:14px;font-weight:500;margin:0 0 5px}.paper-row p{margin:0;font-size:12px;color:var(--muted)}.paper-row .citations{text-align:right;font-family:Consolas,monospace;font-size:12px;color:#b9c9b3}.paper-row .citations small{font-size:12px;color:var(--muted);display:block;margin-top:4px}.loading{margin:auto;text-align:center;padding:50px;font-size:14px;color:var(--muted)}.mobile-filter{display:none}
+@media(min-width:1600px){.detail{width:370px;padding:30px}.workspace{grid-template-columns:235px 1fr}.intro{padding-top:30px}.intro h1{font-size:34px}}
+@media(max-width:1200px){.workspace{grid-template-columns:180px 1fr}.sidebar{padding-left:9px!important;padding-right:9px!important}.detail{width:285px;padding:20px}.intro,.toolbar{padding-left:23px;padding-right:23px}.intro h1{font-size:25px}.header-note{display:none}.control{padding:0 9px}.lane-label{font-size:12px;letter-spacing:.05em}.lane-label .domain-dot{display:none}.zoom-caption{display:none}.search{min-width:190px}.view-toggle button{padding:0 8px}}
+@media(max-width:980px){.workspace{grid-template-columns:160px 1fr}.detail{position:absolute;right:0;top:0;bottom:0;width:315px;z-index:10;box-shadow:-12px 0 40px #0004}.detail.closed{display:none}.intro .collection-total{display:none}.toolbar{gap:7px}.view-toggle{margin-left:0}.source-status{display:none}.intro p{font-size:13px}.intro h1{font-size:26px}.map-bottom{font-size:12px}.detail-close{display:block}}
+@media(max-width:650px){header{height:63px;padding:0 17px;gap:10px}.brand{font-size:16px;gap:10px}.source-link{font-size:0}.source-link .icon{width:17px}.workspace{height:calc(100dvh - 63px);min-height:610px;grid-template-columns:1fr}.sidebar{display:none!important}.intro{padding:20px 18px 15px}.intro h1{font-size:25px}.intro p{font-size:12px;max-width:330px;line-height:1.7}.toolbar{padding:0 18px 16px}.search{max-width:none;min-width:100%;flex-basis:100%}.search kbd{display:none}.control{height:34px;font-size:12px}.view-toggle{height:34px;margin-left:auto}.view-toggle button{font-size:12px;padding:0 7px}.mobile-filter{display:flex}.foundation-control{display:none}.detail{top:0;bottom:0;width:min(350px,94%);padding:22px}.map-bottom{padding:0 9px;gap:6px}.map-bottom .size-legend{display:none}.lane-headings{left:47px;right:8px}.lane-label{font-size:12px;letter-spacing:0;writing-mode:vertical-rl}.lane-headings{height:65px}.canvas-wrap{top:65px}.canvas-wrap{bottom:36px}.map-overlay{left:55px;max-width:calc(100% - 70px);font-size:12px;top:64px}}
+@media(prefers-reduced-motion:no-preference){button,a{transition:background .15s,color .15s}main{animation:appear .45s ease-out}@keyframes appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}}
+</style>
+</head>
+<body>
+<header>
+ <a class="brand" href="./" aria-label="Starts at Attention home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>starts at attention<span style="color:var(--accent)">.</span></span></a>
+ <span class="header-note mono">A RESEARCH ATLAS</span>
+ <div class="header-right"><span class="source-status"><span class="status-dot"></span><span id="updated-label">Loading collection</span></span><a class="source-link" href="https://github.com/harshtomarcode/starts-at-attention" target="_blank" rel="noopener">Source <svg class="icon" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div>
+</header>
+<div class="workspace">
+ <aside class="sidebar" aria-label="Research filters">
+  <section><h2 class="eyebrow">Explore</h2><div id="domain-filters"></div></section>
+  <section><h2 class="eyebrow">Follow a thread</h2><div id="reading-paths"></div></section>
+  <section><h2 class="eyebrow">Connections</h2><button id="citation-toggle" class="path-button active" aria-pressed="true"><span class="path-num">↗</span>Citation links</button><button id="prereq-toggle" class="path-button active" aria-pressed="true"><span class="path-num">┄</span>Learning prerequisites</button></section>
+  <div class="sidebar-bottom"><strong>It starts with a paper.</strong><br>Follow the architecture, training, and systems ideas that came next.<br><span id="catalog-note" style="display:block;margin-top:12px;font-size:12px"></span></div>
+ </aside>
+ <main>
+  <section class="intro"><div><h1>The ideas behind modern AI</h1><p>Trace influential papers through time, across disciplines, and back to their foundations.</p></div><span class="collection-total"><b id="total-count">—</b> papers <span style="margin:0 6px;color:#465349">/</span> <span id="date-range">2017 → today</span></span></section>
+  <div class="toolbar">
+   <label class="search"><svg class="icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="search" type="search" placeholder="Find a paper, idea, or author…" aria-label="Search papers"><kbd>/</kbd></label>
+   <label class="control mobile-filter"><select id="mobile-domain" aria-label="Research domain"><option value="all">All domains</option></select></label>
+   <label class="control"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 6h16M7 12h10M10 18h4"/></svg><select id="family" aria-label="Filter model family"><option value="">All model families</option></select></label>
+   <label class="control"><select id="collection" aria-label="Paper collection"><option value="all">All papers</option><option value="active">Established collection</option><option value="recent">Latest 90 days</option><option value="candidate">Emerging / unreviewed</option><option value="archived">Below cutoff</option></select></label>
+   <button class="control toggle-control foundation-control" id="foundations" aria-pressed="false">Before 2017 <span style="color:#6d7e70">+</span></button>
+   <div class="view-toggle" role="group" aria-label="Display"><button id="map-view" class="active" aria-pressed="true"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="6" cy="7" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="14" cy="18" r="2"/><path d="m8 7 8-2M7 9l6 7m4-9-3 9"/></svg>Map</button><button id="list-view" aria-pressed="false">List</button></div>
+  </div>
+  <div class="main-body">
+   <div class="map-area" id="map-area">
+    <div class="lane-headings" id="lane-headings"></div>
+    <div class="canvas-wrap"><canvas id="graph" role="img" aria-label="Interactive chronological paper map. Use search or List view for keyboard-accessible paper selection."></canvas></div>
+    <div class="map-overlay" id="map-overlay" hidden><span id="filter-label"></span><button id="clear-filter">Clear ×</button></div>
+    <div class="empty-map" id="empty-state" hidden>No papers match these filters.<br><button id="reset-empty">Reset filters</button></div>
+    <div class="zoom-controls" aria-label="Map zoom"><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in">+</button><button class="fit" id="fit" aria-label="Fit graph">Fit</button></div>
+    <span class="zoom-caption">Scroll to zoom · Drag a bubble to play</span>
+    <div class="map-bottom"><div class="legend"><span class="legend-item"><span class="legend-line"></span>Cites earlier paper</span><span class="legend-item"><span class="legend-line dashed"></span>Learn first</span></div><span class="size-legend">Bubble area ∝ log(citations)</span></div>
+    <div class="tooltip" id="tooltip" hidden></div>
+   </div>
+   <div class="list-area" id="list-area" hidden aria-label="Paper list"></div>
+   <aside class="detail" id="detail" aria-label="Selected paper"><div class="detail-empty">Loading the research collection…</div></aside>
+  </div>
+ </main>
+</div>
+<script>
+'use strict';
+const domains=[{id:'text',label:'Text & LLMs',short:'Text / LLMs',color:'#b9ee87'},{id:'vision',label:'Vision & multimodal',short:'Vision',color:'#b8a5ef'},{id:'robotics',label:'Robotics',short:'Robotics',color:'#e9ab98'},{id:'systems',label:'Systems & infra',short:'Systems',color:'#e6c477'},{id:'benchmarks',label:'Benchmarks',short:'Benchmarks',color:'#91c6e6'}];
+const paths=[{id:'llm',label:'How LLMs evolved',papers:['1706.03762','1810.04805','2005.14165','2203.15556','2302.13971','2401.06066','2405.04434','2412.19437','2501.12948','2512.02556','2601.07372','2606.19348','2608.30320']},{id:'deepseek',label:'Inside DeepSeek',papers:['1706.03762','1701.06538','2101.03961','2401.06066','2402.03300','2405.04434','2412.19437','2501.12948','2502.11089','2511.22570','2512.02556','2512.24880','2601.07372','2606.19348']},{id:'reasoning',label:'Learning to reason',papers:['2005.14165','2201.11903','2203.02155','2203.11171','2305.18290','2402.03300','2501.12948','2504.21801','2511.22570']},{id:'systems',label:'From models to machines',papers:['1706.03762','1710.03740','1909.08053','1910.02054','2205.14135','2307.08691','2309.06180']}];
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const fmt=new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1});
+const state={papers:[],links:[],visible:[],nodes:[],selected:'1706.03762',domain:'all',family:'',query:'',path:'',collection:'all',foundations:false,view:'map',citations:true,prerequisites:true,zoom:1,panX:0,panY:0,hover:null,drag:null,fit:true};
+let catalog={},byId=new Map(),raf=0,canvas=$('graph'),ctx=canvas.getContext('2d'),width=0,height=0,frameTime=0,lastPaint=0;
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+const detailChunks=new Map();
+function safeUrl(value){try{const url=new URL(value);return url.protocol==='https:'?url.href:'#'}catch{return '#'}}
+function domainFor(paper){return domains.find(d=>d.id===paper.category)||domains[0]}
+function counts(){return state.papers.reduce((out,p)=>{out[p.category]=(out[p.category]||0)+1;return out},{})}
+function drawFilters(){
+ const totals=counts();
+ $('domain-filters').innerHTML='<button class="domain-button '+(state.domain==='all'?'active':'')+'" data-domain="all" aria-pressed="'+(state.domain==='all')+'"><svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>All research<span class="count">'+state.papers.length+'</span></button>'+domains.map(d=>'<button class="domain-button '+(state.domain===d.id?'active':'')+'" data-domain="'+d.id+'" aria-pressed="'+(state.domain===d.id)+'"><span class="domain-dot" style="--domain-color:'+d.color+'"></span>'+d.label+'<span class="count">'+(totals[d.id]||0)+'</span></button>').join('');
+ $('reading-paths').innerHTML=paths.map((p,i)=>'<button class="path-button '+(state.path===p.id?'active':'')+'" data-path="'+p.id+'" aria-pressed="'+(state.path===p.id)+'"><span class="path-num">0'+(i+1)+'</span>'+p.label+'</button>').join('');
+ $('lane-headings').innerHTML=domains.map(d=>'<div class="lane-label '+(state.domain!=='all'&&state.domain!==d.id?'inactive':'')+'"><span class="domain-dot" style="--domain-color:'+d.color+'"></span>'+d.short+'</div>').join('');
+ $('mobile-domain').value=state.domain;
+}
+function applyFilters(reset=true){
+ const query=state.query.toLowerCase().trim(),path=paths.find(p=>p.id===state.path);
+ state.visible=state.papers.filter(p=>((state.collection==='all'&&p.status!=='archived')||(state.collection==='recent'&&p.status!=='archived'&&Date.parse(p.date)>=Date.parse(catalog.updatedAt)-90*86400000)||p.status===state.collection)&&(state.foundations||p.date>='2017-01-01')&&(state.domain==='all'||p.category===state.domain)&&(!state.family||p.family===state.family)&&(!path||path.papers.includes(p.id))&&(!query||[p.title,p.shortTitle,p.summary,p.lab,p.family,...(p.tags||[]),...(p.authors||[])].join(' ').toLowerCase().includes(query)));
+ if(reset){state.fit=true;state.panX=0;state.panY=0;state.zoom=1}
+ $('empty-state').hidden=state.visible.length>0;
+ const labels=[];if(path)labels.push(path.label);if(state.domain!=='all')labels.push(domains.find(d=>d.id===state.domain).label);if(state.family)labels.push(state.family);if(query)labels.push('“'+state.query+'”');if(state.collection!=='all')labels.push($('collection').selectedOptions[0].textContent);
+ $('map-overlay').hidden=!labels.length;
+ $('filter-label').textContent=labels.join(' · ')+' — '+state.visible.length+' papers';
+ drawFilters();layout();drawList();renderDetail();
+}
+function layout(){
+ const box=canvas.parentElement.getBoundingClientRect();width=box.width;height=box.height;if(!width||!height)return;
+ const dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+ const values=state.visible.map(p=>Date.parse(p.date)).filter(Number.isFinite);
+ state.minDate=values.length?Math.min(...values):Date.UTC(2017,0,1);state.maxDate=values.length?Math.max(...values):Date.UTC(2025,0,1);
+ if(state.maxDate===state.minDate){state.minDate-=86400000;state.maxDate+=86400000}
+ const left=width<500?48:63,lane=(width-left-20)/5,usable=Math.max(height-100,240);
+ state.nodes=state.visible.map(p=>{
+  const index=domains.findIndex(d=>d.id===p.category),hash=Array.from(p.id).reduce((sum,c)=>sum+c.charCodeAt(0),0);
+  const jitter=(Math.sin(hash*127.1)*43758.5453%1)*lane*.35;
+  return {p,x:left+lane*(index+.5)+jitter,y:48+(Date.parse(p.date)-state.minDate)/(state.maxDate-state.minDate)*usable,r:p.citationCount==null?4:Math.sqrt(9+230*Math.min(1,Math.log1p(p.citationCount)/Math.log1p(300000))),phase:hash*.73,fx:0,fy:0,vx:0,vy:0,lift:0};
+ });
+ // Retain chronological anchors; slightly separate nearby nodes within each lane.
+ for(const d of domains){const ns=state.nodes.filter(n=>n.p.category===d.id).sort((a,b)=>a.y-b.y);for(let i=0;i<ns.length;i++)for(let j=Math.max(0,i-5);j<i;j++){const a=ns[i],b=ns[j];if(Math.abs(a.y-b.y)<15&&Math.abs(a.x-b.x)<20)a.x+=a.x>b.x?13:-13;const idx=domains.indexOf(d);a.x=Math.max(left+lane*idx+10,Math.min(left+lane*(idx+1)-10,a.x));}}
+ scheduleDraw();
+}
+function point(node){const t=frameTime*.001,wobble=reducedMotion.matches?0:1;return {x:(node.x-width/2)*state.zoom+width/2+state.panX+node.fx+wobble*Math.sin(t*.85+node.phase)*2.1,y:(node.y-height/2)*state.zoom+height/2+state.panY+node.fy+wobble*Math.cos(t*1.1+node.phase)*1.6-node.lift*2,r:node.r*Math.min(1.5,.75+state.zoom*.25)*(1+node.lift*.16)}}
+function scheduleDraw(){if(!raf&&!document.hidden)raf=requestAnimationFrame(()=>{raf=0;paint()})}
+function paint(){
+ const now=performance.now();if(now-lastPaint<30){scheduleDraw();return}lastPaint=now;frameTime=now;
+ ctx.clearRect(0,0,width,height);if(!state.nodes.length)return;
+ for(const n of state.nodes){const target=n.p.id===state.hover?1:0;n.lift+=(target-n.lift)*.2;if(state.drag?.node!==n){n.vx=(-n.fx*.07+n.vx)*.76;n.vy=(-n.fy*.07+n.vy)*.76;n.fx+=n.vx;n.fy+=n.vy;if(Math.abs(n.fx)+Math.abs(n.fy)<.01){n.fx=0;n.fy=0;n.vx=0;n.vy=0}}}
+ const left=width<500?48:63,lane=(width-left-20)/5,from=new Date(state.minDate).getUTCFullYear(),to=new Date(state.maxDate).getUTCFullYear(),map=new Map(state.nodes.map(n=>[n.p.id,n]));
+ ctx.font='12px Consolas, monospace';ctx.textAlign='left';
+ for(let y=from;y<=to;y++){
+  const worldY=48+(Date.UTC(y,0,1)-state.minDate)/(state.maxDate-state.minDate)*Math.max(height-100,240);
+  const sy=(worldY-height/2)*state.zoom+height/2+state.panY;if(sy<12||sy>height-12)continue;
+  ctx.strokeStyle='#27352b';ctx.setLineDash([2,5]);ctx.beginPath();ctx.moveTo(left,sy);ctx.lineTo(width-15,sy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#728875';ctx.fillText(String(y),12,sy+4);
+ }
+ if(state.maxDate-state.minDate<86400000*365){
+  const span=(state.maxDate-state.minDate)/86400000,step=span<=14?1:span<=90?7:30;
+  for(let date=state.minDate;date<=state.maxDate;date+=step*86400000){
+   const worldY=48+(date-state.minDate)/(state.maxDate-state.minDate)*Math.max(height-100,240),sy=(worldY-height/2)*state.zoom+height/2+state.panY;
+   if(sy<12||sy>height-12)continue;ctx.strokeStyle='#27352b';ctx.setLineDash([2,5]);ctx.beginPath();ctx.moveTo(left,sy);ctx.lineTo(width-15,sy);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#728875';ctx.font='12px Consolas, monospace';ctx.fillText(new Date(date).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}),6,sy+4);
+  }
+ }
+ for(let i=0;i<6;i++){const x=(left+lane*i-width/2)*state.zoom+width/2+state.panX;ctx.strokeStyle='#253329';ctx.globalAlpha=.7;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke()}ctx.globalAlpha=1;
+ const connected=new Set([state.selected]);
+ for(const e of state.links){if((e.type==='citation'&&!state.citations)||(e.type!=='citation'&&!state.prerequisites))continue;if(e.source===state.selected)connected.add(e.target);if(e.target===state.selected)connected.add(e.source)}
+ const links=state.links.filter(e=>map.has(e.source)&&map.has(e.target)&&((e.type==='citation'&&state.citations)||(e.type!=='citation'&&state.prerequisites)));
+ links.sort((a,b)=>Number(a.source===state.selected||a.target===state.selected)-Number(b.source===state.selected||b.target===state.selected));
+ let backgroundEdges=0;
+ for(const e of links){
+  const a=point(map.get(e.source)),b=point(map.get(e.target)),highlight=e.source===state.selected||e.target===state.selected;
+  if(!highlight&&backgroundEdges++>=450)continue;
+  if(Math.max(a.y,b.y)<0||Math.min(a.y,b.y)>height)continue;
+  ctx.globalAlpha=highlight?.66:.105;ctx.strokeStyle=highlight?'#b4d49c':'#829b7a';ctx.lineWidth=highlight?1.3:.8;ctx.setLineDash(e.type==='citation'?[]:[3,5]);
+  const dy=Math.max(20,Math.abs(b.y-a.y)*.45);ctx.beginPath();ctx.moveTo(a.x,a.y+a.r);ctx.bezierCurveTo(a.x,a.y+dy,b.x,b.y-dy,b.x,b.y-b.r);ctx.stroke();ctx.setLineDash([]);
+  if(highlight&&e.type==='citation'){ctx.beginPath();ctx.moveTo(b.x-3,b.y-b.r-5);ctx.lineTo(b.x,b.y-b.r);ctx.lineTo(b.x+3,b.y-b.r-5);ctx.stroke()}
+ }ctx.globalAlpha=1;ctx.lineWidth=1;
+ const nodes=[...state.nodes].sort((a,b)=>Number(a.p.id===state.selected)-Number(b.p.id===state.selected)||(a.p.score??0)-(b.p.score??0));
+ for(const n of nodes){
+  const p=point(n);if(p.y<-50||p.y>height+50||p.x<-50||p.x>width+50)continue;
+  const color=domainFor(n.p).color,selected=n.p.id===state.selected,hover=n.p.id===state.hover;
+  const alpha=selected||hover?1:connected.has(n.p.id)?.9:(n.p.status==='candidate'&&state.collection==='all'?.3:.65);
+  if(selected){ctx.shadowColor=color;ctx.shadowBlur=16;ctx.globalAlpha=.09;ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,p.r+8,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.globalAlpha=.8;ctx.strokeStyle=color;ctx.setLineDash([2,3]);ctx.beginPath();ctx.arc(p.x,p.y,p.r+5,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
+  ctx.globalAlpha=alpha;ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;
+  ctx.globalAlpha=.25;ctx.beginPath();ctx.arc(p.x,p.y,p.r+3,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+  if(n.p.citationCount==null){ctx.fillStyle='#111b13';ctx.beginPath();ctx.arc(p.x,p.y,Math.max(2,p.r-2),0,Math.PI*2);ctx.fill()}
+ }
+ const labelBoxes=[],ranked=[...state.nodes].sort((a,b)=>Number(b.p.id===state.selected)-Number(a.p.id===state.selected)||Number(b.p.id===state.hover)-Number(a.p.id===state.hover)||(b.p.score??b.p.citationCount??0)-(a.p.score??a.p.citationCount??0));
+ for(const n of ranked){
+  if(labelBoxes.length>=(state.zoom<1.25?16:65))break;
+  const p=point(n);if(p.y<15||p.y>height-20||p.x<left-10||p.x>width-10)continue;
+  const selected=n.p.id===state.selected,hover=n.p.id===state.hover,forced=selected||hover;
+  const title=n.p.shortTitle||n.p.title;ctx.font=(forced?'600 ':'400 ')+(forced?13:12)+'px -apple-system, BlinkMacSystemFont, sans-serif';
+  const max=lane*state.zoom*1.7;let label=title;while(ctx.measureText(label).width>Math.max(max,95)&&label.length>12)label=label.slice(0,-2);if(label!==title)label+='…';
+  const tw=ctx.measureText(label).width,tx=Math.max(left+3,Math.min(width-tw-8,p.x-tw/2)),ty=p.y+p.r+17;
+  const box={x:tx-4,y:ty-11,w:tw+8,h:28};
+  if(!forced&&labelBoxes.some(b=>box.x<b.x+b.w&&box.x+box.w>b.x&&box.y<b.y+b.h&&box.y+box.h>b.y))continue;
+  if(!forced&&state.zoom<1.25&&labelBoxes.length>15)continue;
+  labelBoxes.push(box);ctx.textAlign='left';ctx.fillStyle=forced?'#edf6e8':'#b2c1ac';ctx.fillText(label,tx,ty);
+  if(forced){ctx.font='12px Consolas, monospace';ctx.fillStyle='#80997c';ctx.fillText(n.p.date.slice(0,7),tx,ty+13)}
+ }
+ if(state.view==='map'&&(!reducedMotion.matches||state.drag||state.nodes.some(n=>Math.abs(n.fx)+Math.abs(n.fy)>.01)))scheduleDraw();
+}
+function selectPaper(id,focus=false){
+ if(!byId.has(id))return;state.selected=id;$('detail').classList.remove('closed');
+ if(!state.visible.some(p=>p.id===id)){state.query='';state.family='';state.domain='all';state.path='';state.collection=byId.get(id).status==='archived'?'archived':'all';if(byId.get(id).date<'2017-01-01')state.foundations=true;syncControls();applyFilters()}
+ else{renderDetail();drawList();scheduleDraw()}
+ if(focus){const node=state.nodes.find(n=>n.p.id===id);if(node){state.panY=(height/2-node.y)*state.zoom;state.panX=0;scheduleDraw()}}
+ history.replaceState(null,'','#paper='+encodeURIComponent(id));
+}
+function renderDetail(){
+ const p=byId.get(state.selected);if(!p)return;
+ if(p.detailFile&&!Object.prototype.hasOwnProperty.call(p,'abstract')){
+  if(!detailChunks.has(p.detailFile))detailChunks.set(p.detailFile,fetch(p.detailFile).then(r=>{if(!r.ok)throw new Error('Abstract unavailable');return r.json()}));
+  detailChunks.get(p.detailFile).then(records=>{if(records[p.id])Object.assign(p,records[p.id]);else p.abstract=null;if(state.selected===p.id)renderDetail()}).catch(()=>{p.abstract=null;if(state.selected===p.id)renderDetail()});
+ }
+ const d=domainFor(p),authors=(p.authors||[]),incoming=state.links.filter(e=>e.target===p.id),outgoing=state.links.filter(e=>e.source===p.id&&e.type==='citation');
+ const prerequisites=incoming.filter(e=>e.type!=='citation'),citations=incoming.filter(e=>e.type==='citation');
+ function connections(edges,incomingSide){return edges.slice(0,10).map(e=>{const linked=byId.get(incomingSide?e.source:e.target);if(!linked)return '';return '<button class="connection" data-paper="'+esc(linked.id)+'" style="--domain-color:'+domainFor(linked).color+'"><i class="small-dot"></i><span>'+esc(linked.shortTitle||linked.title)+'<small>'+esc(e.type==='citation'?'Verified in '+(e.provider||'citation index'):(e.reason||'Curated learning prerequisite'))+'</small></span><span class="arrow">↗</span></button>'}).join('')}
+ $('detail').innerHTML='<div class="detail-top"><span class="paper-category" style="--domain-color:'+d.color+'"><span class="domain-dot"></span>'+d.label+'</span><button class="detail-close" id="close-detail" aria-label="Close paper details">×</button></div><h2>'+esc(p.title)+'</h2><p class="authors">'+esc(authors.slice(0,4).join(', ')+(authors.length>4?' + '+(authors.length-4)+' authors':''))+'</p><div class="paper-date">'+esc(new Date(p.date+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',year:'numeric',timeZone:'UTC'}))+(p.lab?'<span class="separator">/</span>'+esc(p.lab):'')+'</div><div class="paper-stats"><div><span class="value">'+(p.citationCount==null?'—':fmt.format(p.citationCount))+'</span><span class="label">Indexed citations</span></div><div><span class="value">'+(p.score==null?'—':Number(p.score).toFixed(0))+'</span><span class="label">Impact score · provisional</span></div></div><div class="detail-tags">'+[...(p.status==='candidate'?['Emerging · not yet reviewed']:[]),...(p.tags||[])].slice(0,5).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div><p class="paper-summary">'+esc(p.summary||p.abstract||'Open the original paper to explore its contribution.')+'</p><div class="detail-section"><h3 class="eyebrow">Why it belongs</h3><p>'+esc(p.why||'Discovered in the research collection; editorial review is pending.')+'</p></div>'+(prerequisites.length?'<div class="detail-section"><h3 class="eyebrow">Understand this first</h3>'+connections(prerequisites,true)+'</div>':'')+(citations.length?'<div class="detail-section"><h3 class="eyebrow">Earlier papers it cites</h3>'+connections(citations,true)+'</div>':'')+(outgoing.length?'<div class="detail-section"><h3 class="eyebrow">Papers that followed</h3>'+connections(outgoing,false)+'</div>':'')+'<a class="read-paper" target="_blank" rel="noopener" href="'+esc(safeUrl(p.source))+'">Read the original paper <span>↗</span></a><p class="citation-note">'+(p.citationCount==null?'Citation count not yet available. An outlined node indicates missing citation data.':esc((p.citationProvider||'OpenAlex')+' · '+Number(p.citationCount).toLocaleString()+' citations · measured '+(p.citationUpdatedAt||catalog.updatedAt||'').slice(0,10))+'. Counts apply to the indexed paper record; coverage varies between versions.')+'</p>'+(p.abstract?'<details class="abstract-details"><summary>Read abstract</summary><p>'+esc(p.abstract)+'</p></details>':'')+'<details class="abstract-details"><summary>About the score</summary><p>'+esc(catalog.scoreDescription||'Scores will become available as citation metadata is refreshed. The permanent inclusion cutoff has not been set.')+'</p></details>';
+ $('close-detail').onclick=()=>{$('detail').classList.add('closed');layout()};
+}
+function drawList(){
+ if(state.view!=='list')return;
+ const papers=[...state.visible].sort((a,b)=>(state.collection==='recent'?b.date.localeCompare(a.date):0)||(b.score??b.citationCount??0)-(a.score??a.citationCount??0)||b.date.localeCompare(a.date));
+ $('list-area').innerHTML=papers.length?papers.map(p=>'<button class="paper-row '+(state.selected===p.id?'active':'')+'" data-paper="'+esc(p.id)+'"><span class="year">'+esc(p.date.slice(0,7))+'</span><span><h3>'+esc(p.title)+'</h3><p>'+esc(domainFor(p).label)+' · '+esc((p.tags||[]).slice(0,2).join(' / '))+'</p></span><span class="citations">'+(p.citationCount==null?'—':fmt.format(p.citationCount))+'<small>citations</small></span></button>').join(''):'<div class="loading">No papers match these filters.</div>';
+}
+function syncControls(){$('collection').value=state.collection;$('search').value=state.query;$('family').value=state.family;$('foundations').setAttribute('aria-pressed',state.foundations);$('foundations').innerHTML='Before 2017 <span style="color:#6d7e70">'+(state.foundations?'✓':'+')+'</span>'}
+function resetFilters(){state.query='';state.domain='all';state.family='';state.path='';state.collection='all';state.foundations=false;syncControls();applyFilters()}
+function hitTest(x,y){let found=null,best=Infinity;for(const n of state.nodes){const p=point(n),dist=Math.hypot(x-p.x,y-p.y);if(dist<Math.max(p.r+7,16)&&dist<best){found=n;best=dist}}return found}
+function zoomBy(factor,x=width/2,y=height/2){const old=state.zoom;state.zoom=Math.max(.6,Math.min(5,old*factor));state.panX=x-width/2-(x-width/2-state.panX)*state.zoom/old;state.panY=y-height/2-(y-height/2-state.panY)*state.zoom/old;scheduleDraw()}
+document.addEventListener('click',event=>{
+ const paper=event.target.closest('[data-paper]');if(paper){$('detail').style.display='';selectPaper(paper.dataset.paper);return}
+ const domain=event.target.closest('[data-domain]');if(domain){state.domain=domain.dataset.domain;state.path='';applyFilters();return}
+ const path=event.target.closest('[data-path]');if(path){state.path=state.path===path.dataset.path?'':path.dataset.path;state.domain='all';state.family='';state.query='';state.collection='all';syncControls();applyFilters()}
+});
+$('search').addEventListener('input',event=>{state.query=event.target.value;applyFilters()});
+$('collection').onchange=event=>{state.collection=event.target.value;state.path='';applyFilters()};
+$('family').onchange=event=>{state.family=event.target.value;state.path='';applyFilters()};
+$('mobile-domain').onchange=event=>{state.domain=event.target.value;state.path='';applyFilters()};
+$('foundations').onclick=()=>{state.foundations=!state.foundations;syncControls();applyFilters()};
+for(const name of ['citation','prereq'])$(name+'-toggle').onclick=()=>{const key=name==='citation'?'citations':'prerequisites';state[key]=!state[key];$(name+'-toggle').classList.toggle('active',state[key]);$(name+'-toggle').setAttribute('aria-pressed',state[key]);scheduleDraw()};
+for(const view of ['map','list'])$(view+'-view').onclick=()=>{state.view=view;$('map-area').hidden=view!=='map';$('list-area').hidden=view!=='list';for(const v of ['map','list']){$(v+'-view').classList.toggle('active',v===view);$(v+'-view').setAttribute('aria-pressed',v===view)}if(view==='map')layout();else drawList()};
+$('clear-filter').onclick=resetFilters;$('reset-empty').onclick=resetFilters;
+$('zoom-in').onclick=()=>zoomBy(1.35);$('zoom-out').onclick=()=>zoomBy(1/1.35);$('fit').onclick=()=>{state.zoom=1;state.panX=0;state.panY=0;scheduleDraw()};
+canvas.addEventListener('wheel',event=>{event.preventDefault();const box=canvas.getBoundingClientRect();zoomBy(Math.exp(-event.deltaY*.0018),event.clientX-box.left,event.clientY-box.top)},{passive:false});
+canvas.addEventListener('pointerdown',event=>{canvas.setPointerCapture(event.pointerId);const box=canvas.getBoundingClientRect(),node=hitTest(event.clientX-box.left,event.clientY-box.top);state.drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,node};if(node){node.vx=0;node.vy=0}canvas.classList.add('dragging');$('tooltip').hidden=true});
+canvas.addEventListener('pointermove',event=>{
+ const box=canvas.getBoundingClientRect(),x=event.clientX-box.left,y=event.clientY-box.top;
+ if(state.drag){const dx=event.clientX-state.drag.x,dy=event.clientY-state.drag.y;if(state.drag.node){state.drag.node.fx+=dx;state.drag.node.fy+=dy}else{state.panX+=dx;state.panY+=dy}state.drag.x=event.clientX;state.drag.y=event.clientY;scheduleDraw();return}
+ const node=hitTest(x,y);state.hover=node?.p.id||null;canvas.style.cursor=node?'pointer':'grab';scheduleDraw();
+ const tip=$('tooltip');tip.hidden=!node;if(node){tip.innerHTML=esc(node.p.shortTitle||node.p.title)+'<small>'+esc(node.p.date.slice(0,7))+' · '+(node.p.citationCount==null?'Citation data pending':fmt.format(node.p.citationCount)+' indexed citations')+'</small>';tip.style.left=Math.max(8,Math.min(width-240,x+15))+'px';tip.style.top=Math.max(55,Math.min(height-40,y+70))+'px'}
+});
+canvas.addEventListener('pointerup',event=>{if(state.drag&&Math.hypot(event.clientX-state.drag.startX,event.clientY-state.drag.startY)<7){const box=canvas.getBoundingClientRect(),node=hitTest(event.clientX-box.left,event.clientY-box.top);if(node){$('detail').style.display='';selectPaper(node.p.id)}}if(reducedMotion.matches&&state.drag?.node){state.drag.node.fx=0;state.drag.node.fy=0}state.drag=null;canvas.classList.remove('dragging');scheduleDraw()});
+canvas.addEventListener('pointercancel',()=>{state.drag=null;canvas.classList.remove('dragging')});
+canvas.addEventListener('pointerleave',()=>{state.hover=null;$('tooltip').hidden=true;scheduleDraw()});
+document.addEventListener('keydown',event=>{if(event.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){event.preventDefault();$('search').focus()}if(event.key==='Escape'){$('detail').classList.add('closed');$('search').blur();layout()}});
+new ResizeObserver(()=>layout()).observe(canvas.parentElement);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleDraw()});
+async function registerResearchTools(){
+ if(!document.modelContext?.registerTool)return;
+ const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
+ const specs=[{
+  name:'filter_papers',title:'Filter research papers',description:'Filter the visible research map and list by search text, domain, and collection. Returns the resulting paper count and a short sample.',
+  inputSchema:{type:'object',properties:{query:{type:'string'},domain:{type:'string',enum:['all',...domains.map(d=>d.id)]},collection:{type:'string',enum:['all','active','recent','candidate','archived']}},additionalProperties:false},
+  annotations:{readOnlyHint:false,untrustedContentHint:true},
+  async execute(input){
+   if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>!['query','domain','collection'].includes(k))||(input.query!==undefined&&typeof input.query!=='string')||(input.domain!==undefined&&!['all',...domains.map(d=>d.id)].includes(input.domain))||(input.collection!==undefined&&!['all','active','recent','candidate','archived'].includes(input.collection)))throw new Error('Invalid paper filter');
+   state.query=input.query??'';state.domain=input.domain??'all';state.collection=input.collection??'all';state.family='';state.path='';syncControls();applyFilters();await new Promise(requestAnimationFrame);
+   return {query:state.query,domain:state.domain,collection:state.collection,visibleCount:state.visible.length,papers:state.visible.slice(0,10).map(p=>({id:p.id,title:p.title,date:p.date})),selectedPaper:state.selected};
+  }
+ },{
+  name:'open_paper',title:'Open a research paper',description:'Select a paper by its catalog ID, open its details in the interface, and focus the map on it. Returns its title, date, citations, and primary source.',
+  inputSchema:{type:'object',properties:{id:{type:'string'}},required:['id'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},
+  async execute(input){
+   if(!input||typeof input.id!=='string'||Object.keys(input).some(k=>k!=='id')||!byId.has(input.id))throw new Error('Unknown paper ID');
+   $('detail').style.display='';selectPaper(input.id,true);await new Promise(requestAnimationFrame);const p=byId.get(state.selected);
+   return {selectedPaper:p.id,title:p.title,date:p.date,citationCount:p.citationCount,source:p.source,detailOpen:!$('detail').classList.contains('closed')};
+  }
+ }];
+ for(const spec of specs)try{await document.modelContext.registerTool(spec,{signal:lifecycle.signal})}catch(error){console.warn('Research tool unavailable:',error.message)}
+}
+async function start(){
+ try{
+  const local=fetch('./data/papers.json').then(r=>{if(!r.ok)throw new Error('Collection request failed');return r.json()});
+  // Hosted copies read the daily GitHub export; the packaged catalog stays available offline.
+  const liveBase='https://raw.githubusercontent.com/harshtomarcode/starts-at-attention/main/';
+  const hosted=!['localhost','127.0.0.1','::1'].includes(location.hostname);
+  const live=hosted?fetch(liveBase+'data/papers.json',{signal:AbortSignal.timeout(5000)}).then(r=>{if(!r.ok)throw new Error('Live collection unavailable');return r.json()}):Promise.resolve(null);
+  const [bundled,remote]=await Promise.allSettled([local,live]);
+  const bundledData=bundled.status==='fulfilled'?bundled.value:null,remoteData=remote.status==='fulfilled'?remote.value:null;
+  const useRemote=remoteData?.papers?.length&&(!bundledData||remoteData.updatedAt>=bundledData.updatedAt);
+  catalog=useRemote?remoteData:bundledData;if(!catalog)throw new Error('Collection request failed');
+  if(useRemote)for(const p of catalog.papers)p.detailFile=new URL(p.detailFile,liveBase).href;
+  state.papers=Array.isArray(catalog)?catalog:catalog.papers;byId=new Map(state.papers.map(p=>[p.id,p]));state.links=catalog.links||[];
+  const edgeKeys=new Set(state.links.map(e=>e.source+'|'+e.target+'|'+e.type));
+  for(const paper of state.papers)for(const pre of paper.prerequisites||[]){const id=typeof pre==='string'?pre:pre.id,key=id+'|'+paper.id+'|prerequisite';if(byId.has(id)&&!edgeKeys.has(key)){state.links.push({source:id,target:paper.id,type:'prerequisite',reason:pre.reason||'Curated learning prerequisite'});edgeKeys.add(key)}}
+  $('total-count').textContent=state.papers.length;$('date-range').textContent='2017 → '+state.papers.reduce((latest,p)=>p.date>latest?p.date:latest,'').slice(0,10);
+  $('updated-label').textContent='Collection · '+(catalog.updatedAt?new Date(catalog.updatedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'Curated pilot');
+  const known=state.papers.filter(p=>p.citationCount!=null).length;$('catalog-note').textContent=state.papers.length+' papers · '+known+' with citation data. New discoveries are unreviewed. Cutoff not yet set.';
+  $('mobile-domain').innerHTML='<option value="all">All domains</option>'+domains.map(d=>'<option value="'+d.id+'">'+d.label+'</option>').join('');
+  $('family').innerHTML='<option value="">All model families</option>'+[...new Set(state.papers.map(p=>p.family).filter(Boolean))].sort().map(f=>'<option value="'+esc(f)+'">'+esc(f)+'</option>').join('');
+  const hash=new URLSearchParams(location.hash.slice(1)).get('paper');if(hash&&byId.has(hash))state.selected=hash;
+  if(byId.get(state.selected)?.date<'2017-01-01')state.foundations=true;
+  if(window.innerWidth<980)$('detail').classList.add('closed');
+  syncControls();applyFilters();await registerResearchTools();
+ }catch(error){$('detail').innerHTML='<div class="detail-empty">The paper collection could not be loaded. Please refresh to try again.</div>';$('updated-label').textContent='Collection unavailable';$('empty-state').hidden=false;$('empty-state').textContent='Unable to load papers. Refresh to try again.';console.error(error)}
+}
+start();
+</script>
+</body>
+</html>
