@@ -13,9 +13,9 @@ Attention Is All You Need. Arrow keys move between papers; Enter opens the selec
 Reduced-motion settings disable the ambient wobble. Category names across the top
 are hidden; bubble colors still identify the lanes.
 
-The September 8, 2026 snapshot tracks **2,238 papers**, with **799 visible**,
-including **244 from the last two years** and **45 recent systems papers**.
-The daily updater recalibrates category thresholds toward 800 visible papers.
+The September 8, 2026 snapshot tracks **2,238 papers**, with **650 visible**,
+including **95 from the last two years** and **44 recent systems papers**.
+The daily updater recalibrates category thresholds toward 650 visible papers.
 Citation coverage is 1,000 of 2,238; unknown measurements remain unknown.
 Publication-linked author profiles are stored for the 448 indexed recent papers,
 with 5,603 distinct author profiles retrieved and strict publication-name checks.
@@ -109,21 +109,21 @@ failures preserve earlier evidence. The canonical catalog stores author profiles
 once by ID; the browser receives only the strongest relevant profile per paper.
 
 The daily selection process searches for the cutoff producing the closest count
-to `policy.targetVisible` (800). Category cutoffs multiply that base by:
+to `policy.targetVisible` (650). Category cutoffs multiply that base by:
 
 | Category | Factor | Snapshot cutoff |
 | --- | ---: | ---: |
-| Systems | 0.70 | 3.3411 |
-| Robotics | 0.90 | 4.2957 |
-| Benchmarks | 0.95 | 4.53435 |
-| Text / LLMs | 1.00 | 4.773 |
-| Vision | 1.10 | 5.2503 |
+| Systems | 0.70 | 32.52963 |
+| Robotics | 0.90 | 41.82381 |
+| Benchmarks | 0.95 | 44.147355 |
+| Text / LLMs | 1.00 | 46.4709 |
+| Vision | 1.10 | 51.11799 |
 
 Lower factors mean easier admission. This preserves the larger systems collection.
 The factors are policy choices, not empirical measures of field importance.
 Thresholds change with the catalog; the scoring equation does not normalize against
 other papers or change to fit the target. Ties, available evidence, and required
-learning material can leave the count slightly above or below 800. The updater
+learning material can leave the count slightly above or below 650. The updater
 does not pad the graph with unknown or zero-score discoveries to reach a quota.
 
 Older historical selections, protected foundations, and explicitly reviewed recent
