@@ -6,7 +6,7 @@ updater, no package dependencies.
 
 The entire page is the graph. Hover to inspect a paper, click to trace its lineage,
 double-click to read the original, drag a bubble to stretch its connections, drag
-the background to pan, and scroll through time. Each screen spans about 3½ months,
+the background to pan, and scroll through time. Each screen spans about seven months,
 with Text/LLMs centered and milestone captions on the right. Hold Control/Command
 while scrolling to zoom. Double-click empty space or press Home to return to
 Attention Is All You Need. Arrow keys move between papers; Enter opens the selected source.
