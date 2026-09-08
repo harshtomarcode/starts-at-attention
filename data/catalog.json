@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-08T01:23:21.747370+00:00",
+  "updatedAt": "2026-09-08T01:25:39.709555+00:00",
   "policy": {
     "version": 3,
     "cutoff": 0.1,
@@ -57016,7 +57016,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/43014fc85c4860487336579ec98f509fec1803f7",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "2e700ff36108119f5ed19a53bd2eaa22b42ec3d8",
         "bc8b82e8eb0b0714892e4ec7a54ebdf47c4fde96",
@@ -65409,7 +65409,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/a0e7c31d723608e03f30fc92ffc2a604a7a039da",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "bc8b82e8eb0b0714892e4ec7a54ebdf47c4fde96",
         "cd733ce920e055415e9a9a7d90d3ec89f8750866",
@@ -81563,7 +81563,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/4d76206515d6b33903937474273885476fc2771e",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "10158879cdb64ce7d3f7bb5572c4617ea808602e",
         "282c568302701bc163d454702eae10e43ca784a3",
@@ -83764,7 +83764,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/7e88160ab2b3c9224ce0b9a66bec1740728984bf",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "bc8b82e8eb0b0714892e4ec7a54ebdf47c4fde96",
         "774591fdd988eaaff3917e7c5171d044b0843e63",
@@ -88887,7 +88887,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/6dc5c6190dfbe55c8b45b7b23800614c21e5b51c",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "104b0bb1da562d53cbda87aec79ef6a2827d191a",
         "823ca4778e1027f2f0b356df051d762dcecaaba0",
@@ -92978,7 +92978,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/28f59093730d88719b96041f9544c73671f798bd",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "6dc5c6190dfbe55c8b45b7b23800614c21e5b51c",
         "ade22704be8a0fc3730d320cc7934b2ccbcd97e4",
@@ -93827,7 +93827,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/b1e600dfa7e61c54fb21fe4bd2d1edc7943166aa",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "6fc96ad9fd3613de70a7a877fe9a9205c5af1bdf",
         "7326329c09c11aac423ef4910222a16952bb01dc",
@@ -94845,7 +94845,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/7528033e5d43b8ee169598c0d09bb2d303c7e42f",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "fab3e1ef6cb6e5c326194d4b8581e8266ab727b2",
         "6dc5c6190dfbe55c8b45b7b23800614c21e5b51c",
@@ -98494,7 +98494,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/45d2c6335d9914907f50a897c28dfd16b6d892d7",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "49156f31b37118bf98f5a49200a3004f62999b34",
         "a3b0fce0a9f70f9bc32ddd04aaf5c6192146f8cc",
@@ -98765,7 +98765,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/a1fe59cee2adfdb60a5bb021d2295b53e69f7ada",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "29528d8cb030a65f62a35b1237f1f5483077ad0a",
         "bc816a7922716d1dc4a360a9090a7437f46f55b7",
@@ -99862,7 +99862,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/97803ac38c2dedd85fde1e96f2ba799fedd0b7f9",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "40e8af970329135ec95057d73e239dab805ad128",
         "cba8438b8cf288ff7d36fe2439037a3c887a0a3a",
@@ -100240,7 +100240,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/a6586a0b78ae72b3cecc7d1ef51ee2032f848a15",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "373d7bc9a5ad68f915ccf9c763ecdd308f204633",
         "a5fa4f79a887f42abb515bcb6ae0d4ccc6ef47ae",
@@ -101648,7 +101648,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/165e1b5ec12ab524641298e5f536e79fdbb552b7",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "1d222c62a074c1d561814f71da2d8c69fa3fe578",
         "5d1ca53a0b41f4f5c960cd9997556d7180d6b88d",
@@ -105176,7 +105176,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/a5524d085ac586d531021dcb1ec156eaf942b109",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "a9ea9ab5680501e1a942938137d3363cd28e31d4",
         "7ac10c0a06598a32d35be39f0f937587aaffe8e5",
@@ -105774,7 +105774,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/1b02e4d80a917534afef43c17c0f8c8a4db35314",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "0a1e8e2c669dbc6c6f83d18ad4b19aa10741a329",
         "aa2b7484510e3a228814c23a0a5a94c9367e14ae",
@@ -106784,7 +106784,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/ec864acbc8db71f2a885130422b28b72c0d9d4e5",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "6d65db39cbb4f7af9ecef5555dc8bc20781838e7",
         "2eed1fad9bbf887d4395de40f20144c4fafefd7f",
@@ -107127,7 +107127,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/7c3005951184069894e7a9bccfe48927c25bd68c",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "8da18b000e596a0539ee61b65a864a0ae121cccc",
         "5630d71a0ca608985a7beb00ce6a302c2142762d",
@@ -108064,7 +108064,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/8dcdf225fb779cbf439c525d5bafc2b354a171fe",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "87c06022e2b44d2e007d896da07a15dbbfbec1dc",
         "d2d84d56f730f81d276a02b48d5d44db5bde0b4a",
@@ -108998,7 +108998,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/8729f7e0711ab94b7276fdd2117ee0e514a56ddd",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [],
       "referencedArxivIds": [],
       "referenceEvidenceComplete": true,
@@ -109333,7 +109333,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/dcb25e0ebfe080947075252c7f75bf92296afe04",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "aead85a4aa1fde0cf69d62057fc3134c4fb8edd8",
         "87701d4ef8f19cd1b3db061bf3d62d662f111eed",
@@ -109686,7 +109686,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/f407ed577156a85ac89ea3aaa13b948fb4b5e193",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "ad889d76c090b27ad438f79cab231dfe3c3000d3",
         "577f9236ef51cce9f7ce163bf0c362391e9cc9be",
@@ -110197,7 +110197,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/13b286b3700cb96c5e8e150d88e0a9e326a4368e",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "4036c337a8cba9c724df31d8041b9961b9b72c3f",
         "45d2c6335d9914907f50a897c28dfd16b6d892d7",
@@ -111048,7 +111048,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/f01a9f38d99adf4cf11c7c0425caf2f2ad5c6eac",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "088ae610b44a94e8976118cb290cb9b48cf388dc",
         "aa2b7484510e3a228814c23a0a5a94c9367e14ae",
@@ -111382,7 +111382,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/5e9ffdd179df49be1129e32ae75fc89a2b68e676",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "4a230ff814e6492da8c7dbd1b3d44842df1be989",
         "c6f896aa698b2d65160372bce057ea5f081904de",
@@ -111527,7 +111527,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/98bacafe249a64f6c2d06e4e0694bae3dc7f4fa5",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "ef7226f8c60b9ae0e71a41b8393733c39db407d1",
         "99a9609622151d6474052249470174e0f740bde1",
@@ -112037,7 +112037,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/91c12fc38719eae97e812c6d59a37de5de288c75",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "fb122b2e27f70844d0ef3d3a60abcb52d0d53ec0",
         "8998b3895cce8b206098197478d3d9bc3add321c",
@@ -112495,7 +112495,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/de66c68c7b1f909aa91e590948601b413560c577",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "03fc1872ee0a2e284f14386aab69a18b416289b6",
         "6349276a48bcfac880be09914bea91a60200edcb",
@@ -113881,7 +113881,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/4c81515d1aa61c56da6217766936a9fc368ac514",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "9a3e37311ff29cf25b8b7ea2e7a3b6165ad1650e",
         "5abdf3cdca85a6c57c33552b067a3e4d9cb5ffbc",
@@ -114017,7 +114017,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/55087e6f6392d26af8b341000f20a4cf24db03bf",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "5d86b91964a86c036f93386dd8a401fc4a2c9c14",
         "6468381e6301f75023093375a72ce2565c2f88e4",
@@ -114155,7 +114155,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/f8572548f26aaba07f75b639cffcf4fe9e52848f",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "837c0d970e9457135f3cb28918ae1e58f9be5204",
         "6468381e6301f75023093375a72ce2565c2f88e4",
@@ -114816,7 +114816,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/babb9e91496e8b348decc1b3af65b46d000fd6b0",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [],
       "referencedArxivIds": [],
       "referenceEvidenceComplete": true,
@@ -114892,7 +114892,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/249dc64f1049cd60727cce237b8aff4bcb4e5d6d",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "569fca4e9a24ed702ba5738c3cb61020af5459de",
         "c6c638083d3df6df9c737bc2211d4b2eea30a1ce",
@@ -115366,7 +115366,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/c94545504f2dc1757e972118ca774be38d1674ce",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "0a524f4d2c76088a4d4fb815f95b63d2d40270e5",
         "1d05e29cd030ea1667a11bb68a210ada3067245a",
@@ -115569,7 +115569,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/510cb93a43ad55a8cb2bc6cf1017f58411d91a42",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "94748227ab1220517c764076175cb8af3df9984d",
         "e369f64e37f1f9734793bbd36fa9d6f8f0e8c6c0",
@@ -115969,7 +115969,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/e223b776fe9fccebccb267a2cc735b9eb320fe8c",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "2e774fd391ff10123af13d60a9efc54548705bc0",
         "f3d401f01aa5cb2eb3974196efda8895d06610c7",
@@ -116476,7 +116476,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/ef0fcf2f99c74918ceed21f529c1b99f782ac33e",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [],
       "referencedArxivIds": [],
       "referenceEvidenceComplete": true,
@@ -116553,7 +116553,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/9171fc5ae5ae6c99a0e2520afe2f60a968f6a9f6",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "e7bc935576e3303090e3bd5b1b062435c4a6091f",
         "ebcc683e5494bd8fbe596dfc4b3eaf6fb641fc74",
@@ -117238,7 +117238,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/fd3e5f474f033acba872b87638a79cae6be37ecf",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "c5908653b52b24423cfe07270b0d737399feb68c",
         "6466fe8d693ffc157ed9ebc5edb2c45d83bc749b",
@@ -117371,7 +117371,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/28c77105bd890d1f9cdd35250d355a039d6b393e",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "4b2cdc074a8fbd038b897e502dcd9c5fb4d3f595",
         "5a92a5610fba47fb02ff25d20681e1076b433d2e",
@@ -118017,7 +118017,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/630f18308e963f0c667a0bc7c698191ddf1f5e73",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "7c8e7430fdfc95012a162c5d18e296545b650016",
         "d9190f220d21bd900bfa80a0e4d5fe41d4cb62b4",
@@ -118182,7 +118182,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/169dd347daeab89695b88d795ab5523ae4154342",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "96064b918f57a66553644af6d086d9f64ab5813a",
         "f40de94180dc4f858185d1a9eacf4b0799a1938e",
@@ -118382,7 +118382,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/02cbf7c87d721ca17b3416d2360350092a21c2c8",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "c081ead0ce870dae8237cd4d8fa031a2b195acf2",
         "401567b156ececc3298091898819bfc259958630",
@@ -118575,7 +118575,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/11bb0e1db250a49febd68f124d31bb693e1e0c8c",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "1fd0aa53188fd776bc230f18c59a0b757dc584dc",
         "0589a9f72c1280f80caf0ca909f2dd01f3b95d84",
@@ -118723,7 +118723,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/2b1dd5e68d3ee1854b8fe167645f58ded5f5e744",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "24f25a13a9c1077a6635da1aced5be4f1ffe697a",
         "8597d67b45b002e34b43678758cc503ce3cfda66",
@@ -118849,7 +118849,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/559d85b3e3f0b425b069f03646f066979bb6cac0",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "510cb93a43ad55a8cb2bc6cf1017f58411d91a42",
         "19b5e0b1e5c95770b0e3537734f8d96d6037cfd5",
@@ -119328,7 +119328,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/09c6101efc7de83e3c682694345c23f7b90ae93c",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "837c0d970e9457135f3cb28918ae1e58f9be5204",
         "755c20004b061e44775eb54fc3fa0674db9caa8e",
@@ -119456,7 +119456,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/0ab73b23045e35d1a4238d312d15b13349ca89d4",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "17985e95aed2c47311940c877c57793afcea31dc",
         "b6d4ca3ed5b5c726305f31e0c02d8ae7bd6c2307",
@@ -119603,7 +119603,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/96ada08fc79a46fa7eeb14434e5bc04b587e7668",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "52896e5d725113e7feac16447453069107b571fd",
         "f40de94180dc4f858185d1a9eacf4b0799a1938e",
@@ -119702,7 +119702,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/3d109e19e6c026c3a12e2eb67b03dbf7932f235c",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "2b1dd5e68d3ee1854b8fe167645f58ded5f5e744",
         "857bd17799dd0b8d3cc9f9157f474ed6dcd589f7",
@@ -120382,7 +120382,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/46140aa890b06bf17a1c3e22357efcc3f521e7f4",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "0d84924099d769752e2c87e8eae0945751a076d2",
         "f40de94180dc4f858185d1a9eacf4b0799a1938e",
@@ -120494,7 +120494,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/649c31a77eac5cc50f870bb77a4fe79ad6bf5119",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "8597d67b45b002e34b43678758cc503ce3cfda66",
         "8dc356c4a7c17fd02c616d1c1d5935a88a27c2b0",
@@ -120712,7 +120712,7 @@
       "citationUpdatedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationCheckedAt": "2026-09-08T01:22:30.827023+00:00",
       "citationSourceUrl": "https://www.semanticscholar.org/paper/1cbd623c82882753a874b7133c8c6f4acc4539f8",
-      "citationFresh": true,
+      "citationFresh": false,
       "referencedPaperIds": [
         "6670d9f4b214977e1e70f2ac7956d31b047c855f",
         "4386272ea767438bdb868761f185a2f587d93341",
@@ -216613,15 +216613,15 @@
     "provider": "Semantic Scholar",
     "matched": 0,
     "checked": 0,
-    "requested": 2185,
+    "requested": 2237,
     "complete": false,
     "rateLimited": false,
     "error": "Unexpected citation response: list, length 49",
-    "remaining": 2185,
-    "at": "2026-09-08T01:12:07.264061+00:00"
+    "remaining": 2237,
+    "at": "2026-09-08T01:25:39.709555+00:00"
   },
   "lastRun": {
-    "at": "2026-09-08T01:12:07.264061+00:00",
+    "at": "2026-09-08T01:25:39.709555+00:00",
     "discovery": true,
     "citationRefresh": true
   },
@@ -216633,7 +216633,7 @@
     "added": 0,
     "windowComplete": true,
     "totalInWindow": 0,
-    "at": "2026-09-08T01:12:07.264061+00:00"
+    "at": "2026-09-08T01:25:39.709555+00:00"
   },
   "citationEnrichment": {
     "at": "2026-09-08T01:22:30.827023+00:00",
