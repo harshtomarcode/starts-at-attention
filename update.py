@@ -90,7 +90,7 @@ def classify(title, abstract, categories):
         return "benchmarks"
     if "cs.RO" in categories or any(term in text for term in ("robotic", "robot manipulation", "embodied")):
         return "robotics"
-    if any(term in title.lower() for term in ("gpu", "kernel", "serving", "parallelism", "quantization", "inference optimization", "inference acceleration", "distributed training", "kv cache", "kv-cache", "memory-efficient", "compiler", "speculative decoding", "speculative sampling", "prefill", "disaggregat", "all-reduce", "all-to-all", "collective communication", "cuda", "triton", "tensor program", "training system", "llm system")):
+    if any(term in title.lower() for term in ("gpu", "kernel", "serving", "parallelism", "quantization", "inference optimization", "inference acceleration", "distributed training", "kv cache", "kv-cache", "memory-efficient", "compiler", "speculative decoding", "speculative sampling", "prefill", "disaggregat", "all-reduce", "all-to-all", "collective communication", "cuda", "triton", "tensor program", "training system", "llm system", "hbm")):
         return "systems"
     if "cs.CV" in categories or any(term in title.lower() for term in ("vision", "image", "visual", "video", "multimodal", "diffusion")):
         return "vision"
@@ -515,7 +515,7 @@ def score_and_export(catalog):
         paper["selectionCohort"] = "recent" if paper["scoreComponents"]["ageMonths"] < policy["recentMonths"] else "mature"
         paper["selectionPolicy"] = "learning-anchor" if paper["id"] in fixed else "cohort-score"
     factors = policy["categoryFactors"]
-    optional = [p for p in papers if p["id"] not in fixed and p["score"] is not None]
+    optional = [p for p in papers if p["id"] not in fixed and p["score"] is not None and not p.get("outOfScopeReason")]
     guides = {"mature": policy["targetVisible"] - policy["recentTarget"], "recent": policy["recentTarget"]}
     bases = {cohort: policy.get("cohortBaseCutoffs", {}).get(cohort, policy["minimumCutoff"]) for cohort in guides}
 
@@ -563,6 +563,11 @@ def score_and_export(catalog):
         if paper["id"] in fixed:
             paper["selectionBasis"] = "foundation" if paper.get("protected") else "learning-anchor"
             paper["selectionReason"] = "Learning-path anchor or prerequisite"
+            paper.pop("selectionThreshold", None)
+            continue
+        if paper.get("outOfScopeReason"):
+            paper["selectionBasis"] = "out-of-scope"
+            paper["selectionReason"] = "Outside map scope: " + paper["outOfScopeReason"]
             paper.pop("selectionThreshold", None)
             continue
         threshold = cohort_cutoffs[paper["selectionCohort"]][paper["category"]]

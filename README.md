@@ -149,6 +149,8 @@ each group's base by:
 
 Lower factors mean easier admission. This preserves the larger systems collection.
 The factors are policy choices, not empirical measures of field importance.
+An explicit editorial `outOfScopeReason` excludes unrelated applications from the
+visible map while preserving their metadata and measured scores in the catalog.
 Each group's cutoff stays unchanged while its connected count is within 8% of the
 guide. Outside that band the updater recalibrates toward the guide. This lets the
 graph grow and shrink as papers qualify or lose relative relevance, without forcing
