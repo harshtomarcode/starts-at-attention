@@ -21,9 +21,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
-      - name: Discover papers and refresh the full collection
+      - name: Discover papers and refresh due evidence
         env:
           SEMANTIC_SCHOLAR_API_KEY: ${{ secrets.SEMANTIC_SCHOLAR_API_KEY }}
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
         run: python3 -u update.py --discover --refresh --limit 3000 --build
       - name: Save successful updates
         run: |

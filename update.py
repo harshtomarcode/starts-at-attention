@@ -2,6 +2,8 @@
 """Refresh the research catalog and build the static site. Python standard library only."""
 import argparse
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
+from html import unescape
 import json
 import math
 import os
@@ -11,33 +13,57 @@ import shutil
 import sys
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse, urlsplit
 from urllib.request import Request, urlopen
-import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 NOW = datetime.now(timezone.utc)
 STAMP = NOW.isoformat()
-ARXIV = "https://export.arxiv.org/api/query"
 S2 = "https://api.semanticscholar.org/graph/v1/paper/batch"
-NS = {"a": "http://www.w3.org/2005/Atom", "o": "http://a9.com/-/spec/opensearch/1.1/", "arxiv": "http://arxiv.org/schemas/atom"}
 DOMAINS = {"text", "vision", "robotics", "systems", "benchmarks"}
 HEADERS = {"User-Agent": "StartsAtAttention/1.0 (research metadata; github.com/harshtomarcode/starts-at-attention)"}
+REQUEST_STATE = {}
+LAST_REQUEST = {}
 
 
 def request_bytes(request):
-    """Respect transient service failures and shared public API throttling."""
+    """Pace each provider and carry a rate-limit cooldown across stages and runs."""
+    host = urlsplit(request.full_url).hostname
+    state = REQUEST_STATE.setdefault(host, {})
+    blocked = state.get("blockedUntil")
+    if blocked and datetime.fromisoformat(blocked) > datetime.now(timezone.utc):
+        state["deferredThisRun"] = state.get("deferredThisRun", 0) + 1
+        raise URLError(host + " is cooling down until " + blocked)
+    interval = {"export.arxiv.org": 3.1, "api.datacite.org": 1.1, "api.openalex.org": 1.1,
+                "api.semanticscholar.org": 1.1 if os.environ.get("SEMANTIC_SCHOLAR_API_KEY") else 6.1}.get(host, 1.1)
     for attempt in range(3):
+        delay = interval - (time.monotonic() - LAST_REQUEST.get(host, -interval))
+        if delay > 0:
+            time.sleep(delay)
+        LAST_REQUEST[host] = time.monotonic()
+        state["lastAttemptAt"] = datetime.now(timezone.utc).isoformat()
+        state["requestsThisRun"] = state.get("requestsThisRun", 0) + 1
         try:
             with urlopen(request, timeout=45) as response:
-                return response.read()
+                result = response.read()
+                state.update({"lastStatus": response.status, "lastSuccessAt": datetime.now(timezone.utc).isoformat()})
+                state.pop("blockedUntil", None)
+                return result
         except HTTPError as error:
-            if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
+            state["lastStatus"] = error.code
+            retry = error.headers.get("Retry-After", "") if error.headers else ""
+            try:
+                delay = float(retry) if retry.isdigit() else max(0, (parsedate_to_datetime(retry) - datetime.now(timezone.utc)).total_seconds())
+            except (TypeError, ValueError, OverflowError):
+                delay = 8 * (attempt + 1)
+            if error.code == 429:
+                state["blockedUntil"] = (datetime.now(timezone.utc) + timedelta(seconds=max(3600, delay))).isoformat()
                 raise
-            retry = error.headers.get("Retry-After", "")
-            delay = float(retry) if retry.isdigit() else 8 * (attempt + 1)
             if delay > 45:
+                state["blockedUntil"] = (datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat()
+                raise
+            if error.code not in (500, 502, 503, 504) or attempt == 2:
                 raise
             time.sleep(max(delay, 3))
         except (URLError, TimeoutError):
@@ -77,6 +103,8 @@ def validate(catalog):
         raise ValueError("Invalid selection tolerance or learning anchor")
     if not 0 < policy["minimumCutoff"] <= 100:
         raise ValueError("Invalid minimum cutoff")
+    if type(policy.get("monthlyVisibleLimit")) is not int or policy["monthlyVisibleLimit"] < 1:
+        raise ValueError("Invalid monthly density limit")
     if set(policy["categoryFactors"]) != DOMAINS or any(not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in policy["categoryFactors"].values()):
         raise ValueError("Every category needs a positive threshold factor")
     for author in catalog["policy"].get("prominentAuthors", []):
@@ -98,46 +126,94 @@ def classify(title, abstract, categories):
 
 
 def discover(catalog, limit):
-    """Resume a bounded date window so a daily cap never silently loses older results."""
-    cursor = catalog.get("discoveryCursor")
+    """Harvest arXiv-deposited metadata through DataCite with bounded cursor recovery."""
+    endpoint = "https://api.datacite.org/dois"
+    allowed = ("cs.CL", "cs.LG", "cs.CV", "cs.RO", "cs.AI", "cs.DC", "cs.PF", "cs.AR", "cs.PL", "cs.OS")
+    cursor = catalog.get("dataCiteDiscoveryCursor")
     if cursor:
-        begin, end, offset = cursor["begin"], cursor["end"], cursor["offset"]
+        begin, end, page_cursor, offset = cursor["begin"], cursor["end"], cursor["cursor"], cursor["offset"]
     else:
-        last = catalog.get("lastDiscoveryAt")
+        last = catalog.get("lastDataCiteDiscoveryAt") or catalog.get("lastDiscoveryAt")
         begin_date = (datetime.fromisoformat(last) if last else NOW - timedelta(days=4)) - timedelta(days=3)
-        begin, end, offset = begin_date.strftime("%Y%m%d0000"), NOW.strftime("%Y%m%d2359"), 0
-    category_query = " OR ".join("cat:" + c for c in ("cs.CL", "cs.LG", "cs.CV", "cs.RO", "cs.AI", "cs.DC", "cs.PF", "cs.AR", "cs.PL", "cs.OS"))
-    query = "(" + category_query + ") AND submittedDate:[" + begin + " TO " + end + "]"
+        old_begin = (catalog.get("discoveryCursor") or {}).get("begin")
+        if not catalog.get("lastDataCiteDiscoveryAt") and old_begin:
+            begin_date = min(begin_date.date(), datetime.strptime(old_begin[:8], "%Y%m%d").date())
+        begin, end, page_cursor, offset = begin_date.strftime("%Y-%m-%d"), NOW.date().isoformat(), "1", 0
+    query = "created:[" + begin + " TO " + end + "] AND subjects.subject:(" + " OR ".join('"' + c + '"' for c in allowed) + ")"
     known = {paper["id"]: paper for paper in catalog["papers"]}
-    processed = added = 0
+    processed = added = skipped = 0
     total = None
     provider_error = None
-    rate_limited = False
-    print("Discovery: arXiv window", begin, "to", end, "from offset", offset, flush=True)
-    while processed < limit and (total is None or offset < total):
-        amount = min(100, limit - processed)
-        params = {"search_query": query, "start": offset, "max_results": amount, "sortBy": "submittedDate", "sortOrder": "ascending"}
+    rate_limited = complete = False
+    latest = None
+    print("Discovery: DataCite / arXiv registration window", begin, "to", end, "from offset", offset, flush=True)
+    while processed < limit:
+        params = {"provider-id": "arxiv", "query": query, "page[cursor]": page_cursor, "page[size]": 1000}
         try:
-            root = ET.fromstring(request_bytes(Request(ARXIV + "?" + urlencode(params), headers=HEADERS)))
-            total = int(root.findtext("o:totalResults", "", NS))
-            entries = root.findall("a:entry", NS)
-            if not entries and offset < total:
-                raise ValueError("arXiv returned an incomplete result page")
-        except (HTTPError, URLError, TimeoutError, ConnectionError, ET.ParseError, ValueError) as error:
-            provider_error = "arXiv discovery unavailable: " + str(error)
+            result = json.loads(request_bytes(Request(endpoint + "?" + urlencode(params), headers=HEADERS)))
+            if not isinstance(result, dict) or not isinstance(result.get("data"), list):
+                raise ValueError("Unexpected DataCite result page")
+            entries = result["data"]
+            total = result.get("meta", {}).get("total")
+            if type(total) is not int or total < 0:
+                raise ValueError("DataCite omitted its result count")
+            next_url = result.get("links", {}).get("next")
+            next_cursor = None
+            if next_url:
+                parsed = urlparse(next_url)
+                next_values = parse_qs(parsed.query).get("page[cursor]", [])
+                if parsed.scheme != "https" or parsed.netloc != "api.datacite.org" or parsed.path != "/dois" or len(next_values) != 1 or not next_values[0] or next_values[0] == page_cursor:
+                    raise ValueError("Invalid DataCite continuation cursor")
+                next_cursor = next_values[0]
+            if (not entries and (next_cursor or page_cursor == "1" and total)) or offset > len(entries):
+                raise ValueError("DataCite returned an incomplete result page")
+        except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError, TypeError, AttributeError) as error:
+            provider_error = "DataCite discovery unavailable: " + str(error)
             rate_limited = isinstance(error, HTTPError) and error.code == 429
             break
-        for entry in entries:
-            url = entry.findtext("a:id", "", NS)
-            identity = re.sub(r"v\d+$", "", url.rsplit("/abs/", 1)[-1])
-            title = " ".join(entry.findtext("a:title", "", NS).split())
-            abstract = " ".join(entry.findtext("a:summary", "", NS).split())
-            published = entry.findtext("a:published", "", NS)[:10]
-            categories = [node.get("term", "") for node in entry.findall("a:category", NS)]
-            affiliations = sorted({" ".join(node.text.split()) for node in entry.findall("a:author/arxiv:affiliation", NS) if node.text})
-            if not identity or not published or not title:
-                raise ValueError("Incomplete arXiv identity metadata")
-            # Broad discovery, with a relevance check for general CS/ML categories.
+        while offset < len(entries) and processed < limit:
+            entry = entries[offset]
+            offset += 1
+            processed += 1
+            try:
+                attrs = entry["attributes"]
+                doi = attrs["doi"]
+                match = re.fullmatch(r"10\.48550/arxiv\.(\d{4}\.\d{4,5})", doi, re.IGNORECASE)
+                if not match or entry.get("id", "").lower() != doi.lower():
+                    raise ValueError("Invalid arXiv DOI")
+                identity = match.group(1)
+                source = urlparse(attrs["url"])
+                if source.scheme not in ("http", "https") or source.netloc != "arxiv.org" or source.path != "/abs/" + identity or source.query or source.fragment:
+                    raise ValueError("DOI and arXiv URL disagree")
+                title = next((unescape(t["title"]) for t in attrs["titles"] if isinstance(t.get("title"), str) and t["title"].strip()), "")
+                abstract = next((unescape(d["description"]) for d in attrs["descriptions"] if d.get("descriptionType") == "Abstract" and isinstance(d.get("description"), str)), "")
+                title, abstract = " ".join(title.split()), " ".join(abstract.split())
+                submitted = [d["date"] for d in attrs["dates"] if d.get("dateType") == "Submitted" and d.get("dateInformation") == "v1"]
+                if len(submitted) != 1:
+                    raise ValueError("Missing unambiguous first-submission date")
+                published = datetime.fromisoformat(submitted[0].replace("Z", "+00:00")).date().isoformat()
+                if published > NOW.date().isoformat():
+                    raise ValueError("Future submission date")
+                categories = []
+                for subject in attrs["subjects"]:
+                    category = re.search(r"\(([^()]+)\)$", subject.get("subject", ""))
+                    if subject.get("subjectScheme") == "arXiv" and category:
+                        categories.append(category.group(1))
+                authors = []
+                affiliations = set()
+                for author in attrs["creators"]:
+                    name = " ".join((author.get("givenName", "") + " " + author.get("familyName", "")).split()) or author.get("name", "")
+                    if isinstance(name, str) and name.strip():
+                        authors.append(" ".join(unescape(name).split()))
+                    for affiliation in author.get("affiliation", []):
+                        name = affiliation.get("name") if isinstance(affiliation, dict) else affiliation
+                        if isinstance(name, str) and name.strip():
+                            affiliations.add(" ".join(unescape(name).split()))
+                if not title or not abstract or not authors or not any(c in allowed for c in categories):
+                    raise ValueError("Incomplete or unrelated arXiv metadata")
+            except (KeyError, TypeError, ValueError, AttributeError):
+                skipped += 1
+                continue
             relevant = any(c in categories for c in ("cs.CL", "cs.CV", "cs.RO"))
             relevant |= any(word in (title + " " + abstract).lower() for word in (
                 "transformer", "language model", "neural network", "deep learning", "gpu",
@@ -145,49 +221,50 @@ def discover(catalog, limit):
                 "reinforcement learning", "diffusion", "benchmark", "inference", "training",
                 "cuda", "triton", "tensor compiler", "tensor program", "matrix multiplication"))
             if not relevant:
+                skipped += 1
                 continue
+            latest = max(latest or published, published)
             paper = known.get(identity)
             if paper:
-                paper.update({"abstract": abstract, "title": title,
-                              "authors": [node.findtext("a:name", "", NS) for node in entry.findall("a:author", NS)],
-                              "metadataUpdatedAt": STAMP})
-                if paper.get("metadataSource") == "https://huggingface.co/api/daily_papers":
-                    paper.update({"date": published, "dateBasis": "First arXiv submission", "metadataSource": ARXIV,
+                provisional = paper.get("metadataSource") == "https://huggingface.co/api/daily_papers"
+                paper.update({"abstract": abstract, "title": title, "authors": authors,
+                              "metadataSource": endpoint + "/" + doi, "metadataUpdatedAt": STAMP})
+                if provisional:
+                    paper.update({"date": published, "dateBasis": "First arXiv submission (DataCite deposit)",
                                   "category": classify(title, abstract, categories)})
-                if affiliations:
-                    paper.update({"lab": " / ".join(affiliations), "affiliationSource": "https://arxiv.org/abs/" + identity})
-                continue
-            paper = {
-                "id": identity, "title": title, "shortTitle": title,
-                "date": published, "dateBasis": "First arXiv submission",
-                "category": classify(title, abstract, categories), "tags": ["new research"],
-                "family": None, "lab": " / ".join(affiliations) or None,
-                "authors": [node.findtext("a:name", "", NS) for node in entry.findall("a:author", NS)],
-                "source": "https://arxiv.org/abs/" + identity, "abstract": abstract,
-                "summary": "", "why": "Newly discovered paper; editorial review is pending.",
-                "citationCount": None, "score": None, "curated": False, "protected": False,
-                "status": "candidate", "prerequisites": [], "discoveredAt": STAMP,
-                "metadataSource": ARXIV, "metadataUpdatedAt": STAMP,
-            }
+            else:
+                paper = {
+                    "id": identity, "title": title, "shortTitle": title,
+                    "date": published, "dateBasis": "First arXiv submission (DataCite deposit)",
+                    "category": classify(title, abstract, categories), "tags": ["new research"],
+                    "family": None, "lab": None, "authors": authors,
+                    "source": "https://arxiv.org/abs/" + identity, "abstract": abstract,
+                    "summary": "", "why": "Newly discovered paper; editorial review is pending.",
+                    "citationCount": None, "score": None, "curated": False, "protected": False,
+                    "status": "candidate", "prerequisites": [], "discoveredAt": STAMP,
+                    "metadataSource": endpoint + "/" + doi, "metadataUpdatedAt": STAMP,
+                }
+                catalog["papers"].append(paper)
+                known[identity] = paper
+                added += 1
             if affiliations:
-                paper["affiliationSource"] = paper["source"]
-            catalog["papers"].append(paper)
-            known[identity] = paper
-            added += 1
-        offset += len(entries)
-        processed += len(entries)
-        if offset < total and processed < limit:
-            time.sleep(3.1)
-    complete = total is not None and offset >= total and provider_error is None
-    catalog["discoveryCursor"] = None if complete else {"begin": begin, "end": end, "offset": offset}
+                paper.update({"lab": " / ".join(sorted(affiliations)), "affiliationSource": endpoint + "/" + doi})
+        if offset >= len(entries):
+            if next_cursor is None:
+                complete = True
+                break
+            page_cursor, offset = next_cursor, 0
+    # Keep the old export-API cursor as provenance; this independent source replaces it.
+    catalog["dataCiteDiscoveryCursor"] = None if complete else {"begin": begin, "end": end, "cursor": page_cursor, "offset": offset}
     if complete:
-        catalog["lastDiscoveryAt"] = datetime.strptime(end[:8], "%Y%m%d").replace(tzinfo=timezone.utc).isoformat()
-    catalog["discovery"] = {"source": "arXiv", "scanned": processed, "added": added, "windowComplete": complete,
-                            "totalInWindow": total, "error": provider_error, "rateLimited": rate_limited,
-                            "windowBegin": begin, "windowEnd": end, "nextOffset": None if complete else offset, "at": STAMP}
+        catalog["lastDataCiteDiscoveryAt"] = end + "T00:00:00+00:00"
+    catalog["discovery"] = {"source": "DataCite / arXiv", "scanned": processed, "added": added, "skipped": skipped,
+                            "windowComplete": complete, "totalInWindow": total, "error": provider_error,
+                            "rateLimited": rate_limited, "windowBegin": begin, "windowEnd": end,
+                            "latestPublicationDate": latest, "nextOffset": None if complete else offset, "at": STAMP}
     if provider_error:
-        print("::warning::" + provider_error + ". Successful pages retained; discovery will resume at offset " + str(offset) + ".")
-    print("Discovery: scanned", processed, "records, added", added, "candidates;", "window complete" if complete else "will resume at " + str(offset))
+        print("::warning::" + provider_error + ". Successful pages retained; discovery resumes from its saved cursor.")
+    print("Discovery: scanned", processed, "records, added", added, "candidates;", "window complete" if complete else "will resume", flush=True)
 
 
 def discover_huggingface(catalog, limit=1000):
@@ -273,7 +350,13 @@ def discover_huggingface(catalog, limit=1000):
 
 
 def refresh_citations(catalog, limit=1000):
-    papers = [p for p in catalog["papers"] if p.get("semanticScholarId") or re.fullmatch(r"\d{4}\.\d{4,5}", p["id"])]
+    available = [p for p in catalog["papers"] if p.get("semanticScholarId") or re.fullmatch(r"\d{4}\.\d{4,5}", p["id"])]
+    papers = []
+    for paper in available:
+        missing = paper.get("citationCount") is None or not paper.get("semanticScholarId") or not paper.get("referenceEvidenceComplete")
+        stale = (NOW - timedelta(days=7 if paper.get("status") == "active" else 30)).isoformat()
+        if (missing or paper.get("citationUpdatedAt", "") < stale) and paper.get("citationCheckedAt", "") < (NOW - timedelta(days=1)).isoformat():
+            papers.append(paper)
     # Give new papers missing lineage an early turn without starving historical refreshes.
     pending, background = [], []
     for paper in papers:
@@ -290,7 +373,7 @@ def refresh_citations(catalog, limit=1000):
     headers = {**HEADERS, "Content-Type": "application/json"}
     if os.environ.get("SEMANTIC_SCHOLAR_API_KEY"):
         headers["x-api-key"] = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
-    fields = "title,year,publicationDate,externalIds,citationCount,references.externalIds,references.title,url,authors"
+    fields = "externalIds,citationCount,url,authors"
     matched = checked = 0
     rate_limited = False
     provider_error = None
@@ -299,7 +382,8 @@ def refresh_citations(catalog, limit=1000):
         ids = [p.get("semanticScholarId") or "ARXIV:" + p["id"] for p in batch]
         payload = json.dumps({"ids": ids}).encode()
         try:
-            results = json.loads(request_bytes(Request(S2 + "?" + urlencode({"fields": fields}), data=payload, headers=headers)))
+            batch_fields = fields + (",references.externalIds" if any(not p.get("referenceEvidenceComplete") for p in batch) else "")
+            results = json.loads(request_bytes(Request(S2 + "?" + urlencode({"fields": batch_fields}), data=payload, headers=headers)))
             if not isinstance(results, list) or len(results) != len(batch) or any(r is not None and not isinstance(r, dict) for r in results):
                 provider_error = "Unexpected citation response: " + type(results).__name__ + ", length " + str(len(results) if hasattr(results, "__len__") else "unknown")
                 break
@@ -312,6 +396,7 @@ def refresh_citations(catalog, limit=1000):
             break
         for paper, result in zip(batch, results):
             paper["citationCheckedAt"] = STAMP
+            paper["authorIdentitiesCheckedAt"] = STAMP
             checked += 1
             if not result:
                 paper["citationFresh"] = False
@@ -337,7 +422,9 @@ def refresh_citations(catalog, limit=1000):
                 continue
             paper.update({"semanticScholarId": provider_id, "citationCount": count,
                           "citationProvider": "Semantic Scholar", "citationUpdatedAt": STAMP,
-                          "citationSourceUrl": result.get("url"), "citationFresh": True})
+                          "citationSourceUrl": result.get("url"), "semanticScholarSourceUrl": result.get("url"), "citationFresh": True})
+            if ext.get("DOI"):
+                paper["doi"] = ext["DOI"]
             if isinstance(result.get("authors"), list):
                 paper["authorIdentitiesCheckedAt"] = STAMP
                 authors = [a for a in result["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
@@ -351,11 +438,10 @@ def refresh_citations(catalog, limit=1000):
                 paper["referenceEvidenceComplete"] = True
             matched += 1
         print("Citation progress:", checked, "checked of", len(papers), flush=True)
-        if start + 50 < min(len(papers), limit):
-            time.sleep(3.1)
     if provider_error:
         print("::warning::" + provider_error + ". Prior evidence retained; the next run starts with unchecked papers.")
     catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers),
+                          "totalEligible": len(available), "notDue": len(available) - len(papers),
                           "budget": limit, "complete": matched == len(papers), "rateLimited": rate_limited,
                           "error": provider_error, "remaining": len(papers) - checked, "at": STAMP}
     print("Citation refresh:", matched, "matched of", len(papers), "requested; unmatched records retain prior evidence.")
@@ -369,8 +455,8 @@ def refresh_author_reputation(catalog, paper_limit=500, profile_limit=5000):
     headers = {**HEADERS, "Content-Type": "application/json"}
     if os.environ.get("SEMANTIC_SCHOLAR_API_KEY"):
         headers["x-api-key"] = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
-    missing = [p for p in recent if (not p.get("semanticScholarAuthors") and p.get("authorIdentitiesCheckedAt", "")[:10] != STAMP[:10])
-               or (p.get("semanticScholarAuthors") and p.get("authorIdentitiesUpdatedAt", "") < stale)]
+    missing = [p for p in recent if p.get("authorIdentitiesCheckedAt", "") < (NOW - timedelta(days=1)).isoformat()
+               and (not p.get("semanticScholarAuthors") or p.get("authorIdentitiesUpdatedAt", "") < stale)]
     cache = catalog.setdefault("authorMetrics", {})
     missing.sort(key=lambda p: (p.get("authorIdentitiesCheckedAt", ""), not bool(p.get("huggingFace")), -(consequentiality(p, catalog["policy"], cache)["score"] or 0), -datetime.strptime(p["date"], "%Y-%m-%d").toordinal()))
     matched = profiles_checked = 0
@@ -403,11 +489,11 @@ def refresh_author_reputation(catalog, paper_limit=500, profile_limit=5000):
         except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
             error = str(exc)
             break
-        if start + 100 < min(len(missing), paper_limit):
-            time.sleep(3.1)
-    ids = sorted({a["authorId"] for p in recent for a in p.get("semanticScholarAuthors", []) if cache.get(a["authorId"], {}).get("updatedAt", "") < stale})
-    featured_authors = {a["authorId"] for p in recent if p.get("huggingFace") for a in p.get("semanticScholarAuthors", [])}
     profile_checks = catalog.setdefault("authorProfileChecks", {})
+    ids = sorted({a["authorId"] for p in recent for a in p.get("semanticScholarAuthors", [])
+                  if cache.get(a["authorId"], {}).get("updatedAt", "") < stale
+                  and profile_checks.get(a["authorId"], "") < (NOW - timedelta(days=1)).isoformat()})
+    featured_authors = {a["authorId"] for p in recent if p.get("huggingFace") for a in p.get("semanticScholarAuthors", [])}
     ids.sort(key=lambda identity: (profile_checks.get(identity, cache.get(identity, {}).get("updatedAt", "")), identity not in featured_authors, identity))
     # Author profiles are looked up by IDs attached to these publications, never by a name search.
     for start in range(0, min(len(ids), profile_limit), 500):
@@ -429,13 +515,110 @@ def refresh_author_reputation(catalog, paper_limit=500, profile_limit=5000):
         except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
             error = str(exc)
             break
-        if start + 500 < min(len(ids), profile_limit):
-            time.sleep(3.1)
     catalog["authorRefresh"] = {"at": STAMP, "requestedPapers": len(missing), "checkedPapers": identities_checked,
                                "matchedPapers": identities_matched, "requestedProfiles": len(ids), "checkedProfiles": profiles_checked, "matchedProfiles": matched,
                                "paperBudget": paper_limit, "profileBudget": profile_limit, "cachedProfiles": len(cache), "error": error}
     if error:
         print("::warning::Author evidence refresh incomplete; saved profiles retained:", error)
+
+
+def refresh_openalex(catalog, limit=400):
+    """Supplement citation evidence through exact, title-verified arXiv matches."""
+    stale = (NOW - timedelta(days=7)).isoformat()
+    papers = [p for p in catalog["papers"] if re.fullmatch(r"\d{4}\.\d{4,5}", p["id"])
+              and p.get("openAlexCheckedAt", "")[:10] != STAMP[:10]
+              and p.get("openAlex", {}).get("updatedAt", "") < stale]
+    papers.sort(key=lambda p: (p.get("openAlexCheckedAt", ""), p.get("selectionPolicy") != "learning-anchor" and not p.get("protected"), not bool(p.get("huggingFace")),
+                              bool(p.get("referenceEvidenceComplete")), p.get("citationCount") is not None,
+                              -datetime.strptime(p["date"], "%Y-%m-%d").toordinal()))
+    headers = dict(HEADERS)
+    if os.environ.get("OPENALEX_API_KEY"):
+        headers["Authorization"] = "Bearer " + os.environ["OPENALEX_API_KEY"]
+    checked = matched = ambiguous = rejected = 0
+    errors = []
+    rate_limited = False
+    for start in range(0, min(len(papers), limit), 30):
+        batch = papers[start:min(start + 30, limit)]
+        by_id = {p["id"]: p for p in batch}
+        urls = [url for p in batch for url in ("http://arxiv.org/abs/" + p["id"],
+                "https://arxiv.org/abs/" + p["id"], "https://doi.org/10.48550/arxiv." + p["id"])]
+        params = {"filter": "locations.landing_page_url:" + "|".join(urls), "per_page": 100,
+                  "select": "id,doi,title,cited_by_count,referenced_works,locations"}
+        for paper in batch:
+            paper["openAlexCheckedAt"] = STAMP
+        checked += len(batch)
+        try:
+            payload = json.loads(request_bytes(Request("https://api.openalex.org/works?" + urlencode(params), headers=headers)))
+            rows = payload.get("results") if isinstance(payload, dict) else None
+            if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+                raise ValueError("Unexpected OpenAlex work response")
+            meta = payload.get("meta")
+            total = meta.get("count") if isinstance(meta, dict) else None
+            if type(total) is not int or total != len(rows):
+                raise ValueError("Incomplete OpenAlex batch; ambiguous matches cannot be ruled out")
+        except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as error:
+            rate_limited = isinstance(error, HTTPError) and error.code == 429
+            errors.append("OpenAlex unavailable: " + str(error))
+            break
+        matches = {p["id"]: {} for p in batch}
+        for row in rows:
+            locations = row.get("locations")
+            if not isinstance(locations, list):
+                rejected += 1
+                continue
+            identities = set()
+            for url in [row.get("doi")] + [loc.get("landing_page_url") for loc in locations if isinstance(loc, dict)]:
+                if not isinstance(url, str):
+                    continue
+                try:
+                    parsed = urlsplit(url)
+                except ValueError:
+                    continue
+                path = parsed.path.casefold().rstrip("/")
+                match = None
+                if parsed.hostname in ("arxiv.org", "export.arxiv.org"):
+                    match = re.fullmatch(r"/(?:abs|pdf)/(\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?", path)
+                elif parsed.hostname in ("doi.org", "dx.doi.org"):
+                    match = re.fullmatch(r"/10\.48550/arxiv\.(\d{4}\.\d{4,5})(?:v\d+)?", path)
+                if match:
+                    identities.add(match[1])
+            identity = next(iter(identities)) if len(identities) == 1 else None
+            paper = by_id.get(identity)
+            title = row.get("title")
+            count = row.get("cited_by_count")
+            work_id = row.get("id")
+            refs = row.get("referenced_works")
+            if (not paper or not isinstance(title, str) or not isinstance(work_id, str)
+                    or not re.fullmatch(r"https://openalex\.org/W\d+", work_id)
+                    or re.sub(r"[\W_]+", "", title.casefold()) != re.sub(r"[\W_]+", "", paper["title"].casefold())
+                    or type(count) is not int or count < 0 or not isinstance(refs, list)
+                    or any(not isinstance(ref, str) or not re.fullmatch(r"https://openalex\.org/W\d+", ref) for ref in refs)):
+                rejected += 1
+                continue
+            matches[identity][work_id] = row
+        for paper in batch:
+            candidates = matches[paper["id"]]
+            if len(candidates) > 1:
+                ambiguous += 1
+                continue
+            if not candidates:
+                continue
+            row = next(iter(candidates.values()))
+            prior = paper.get("openAlex", {})
+            references = row["referenced_works"] or (prior.get("referencedWorkIds", []) if prior.get("id") == row["id"] else [])
+            paper["openAlex"] = {"id": row["id"], "citationCount": row["cited_by_count"],
+                                "referencedWorkIds": sorted(set(references)), "updatedAt": STAMP,
+                                "sourceUrl": row["id"]}
+            if paper.get("citationCount") is None or paper.get("citationProvider") == "OpenAlex":
+                paper.update({"citationCount": row["cited_by_count"], "citationProvider": "OpenAlex",
+                              "citationUpdatedAt": STAMP, "citationSourceUrl": row["id"], "citationFresh": True})
+            matched += 1
+        print("OpenAlex progress:", checked, "checked,", matched, "matched,", ambiguous, "ambiguous,", rejected, "rejected", flush=True)
+    catalog["openAlexRefresh"] = {"provider": "OpenAlex", "at": STAMP, "requested": len(papers), "checked": checked,
+                                 "matched": matched, "ambiguous": ambiguous, "rejected": rejected, "budget": limit,
+                                 "remaining": len(papers) - checked, "rateLimited": rate_limited, "errors": errors}
+    if errors:
+        print("::warning::" + errors[-1] + ". Existing citation evidence retained.")
 
 
 def consequentiality(paper, policy, author_metrics=None):
@@ -488,14 +671,25 @@ def score_and_export(catalog):
     for paper in papers:
         for alias in paper.get("semanticScholarAliases", []):
             by_s2[alias] = paper["id"]
+    by_openalex = {}
+    for paper in papers:
+        identity = paper.get("openAlex", {}).get("id")
+        if identity:
+            by_openalex[identity] = paper["id"] if identity not in by_openalex else None
     edges = {}
     for paper in papers:
         refs = set(paper.get("referencedArxivIds", []))
         refs.update(by_s2[r] for r in paper.get("referencedPaperIds", []) if r in by_s2)
         for ref in sorted(refs):
             if ref in by_arxiv and ref != paper["id"] and by_arxiv[ref]["date"] <= paper["date"]:
-                edge = {"source": ref, "target": paper["id"], "type": "citation", "provider": "Semantic Scholar", "sourceUrl": paper.get("citationSourceUrl")}
+                source_url = paper.get("semanticScholarSourceUrl") or ("https://www.semanticscholar.org/paper/" + paper["semanticScholarId"] if paper.get("semanticScholarId") else paper.get("citationSourceUrl"))
+                edge = {"source": ref, "target": paper["id"], "type": "citation", "provider": "Semantic Scholar", "sourceUrl": source_url}
                 edges[(ref, paper["id"], "citation")] = edge
+        for identity in paper.get("openAlex", {}).get("referencedWorkIds", []):
+            ref = by_openalex.get(identity)
+            if ref and ref != paper["id"] and by_arxiv[ref]["date"] <= paper["date"]:
+                edges.setdefault((ref, paper["id"], "citation"), {"source": ref, "target": paper["id"], "type": "citation",
+                                 "provider": "OpenAlex", "sourceUrl": paper["openAlex"]["sourceUrl"]})
         for prerequisite in paper.get("prerequisites", []):
             identity = prerequisite if isinstance(prerequisite, str) else prerequisite["id"]
             if identity in by_arxiv and identity != paper["id"]:
@@ -518,10 +712,28 @@ def score_and_export(catalog):
     optional = [p for p in papers if p["id"] not in fixed and p["score"] is not None and not p.get("outOfScopeReason")]
     guides = {"mature": policy["targetVisible"] - policy["recentTarget"], "recent": policy["recentTarget"]}
     bases = {cohort: policy.get("cohortBaseCutoffs", {}).get(cohort, policy["minimumCutoff"]) for cohort in guides}
+    potential = fixed | {p["id"] for p in optional}
+    connected_pool = {endpoint for e in edges.values() if e["source"] in potential and e["target"] in potential
+                      for endpoint in (e["source"], e["target"])}
+    monthly = {}
+    for paper in optional:
+        if paper["id"] in connected_pool:
+            monthly.setdefault(paper["date"][:7], []).append(paper["score"] / factors[paper["category"]])
+    density_bases = {}
+    for month, levels in monthly.items():
+        slots = max(0, policy["monthlyVisibleLimit"] - sum(by_arxiv[identity]["date"].startswith(month) for identity in fixed))
+        if len(levels) > slots:
+            # Raise the category-adjusted boundary above the first excluded score;
+            # equal scores stay together instead of overflowing a crowded month.
+            density_bases[month] = round(sorted(levels, reverse=True)[slots] + .0001, 4)
+
+    def admission_threshold(paper, cutoffs):
+        factor = factors[paper["category"]]
+        return round(max(min(100, cutoffs[paper["selectionCohort"]] * factor),
+                         density_bases.get(paper["date"][:7], 0) * factor), 6)
 
     def admitted(cutoffs):
-        thresholds = {cohort: {category: round(min(100, base * factor), 6) for category, factor in factors.items()} for cohort, base in cutoffs.items()}
-        eligible = fixed | {p["id"] for p in optional if p["score"] >= thresholds[p["selectionCohort"]][p["category"]]}
+        eligible = fixed | {p["id"] for p in optional if p["score"] >= admission_threshold(p, cutoffs)}
         connected = {endpoint for e in edges.values() if e["source"] in eligible and e["target"] in eligible
                      for endpoint in (e["source"], e["target"])}
         return fixed | (eligible & connected)
@@ -570,19 +782,27 @@ def score_and_export(catalog):
             paper["selectionReason"] = "Outside map scope: " + paper["outOfScopeReason"]
             paper.pop("selectionThreshold", None)
             continue
-        threshold = cohort_cutoffs[paper["selectionCohort"]][paper["category"]]
+        threshold = admission_threshold(paper, bases)
         meets_score = paper["score"] is not None and paper["score"] >= threshold
+        cohort_threshold = cohort_cutoffs[paper["selectionCohort"]][paper["category"]]
+        crowded = threshold > cohort_threshold and paper["score"] is not None and paper["score"] >= cohort_threshold
         paper["selectionThreshold"] = threshold
         paper["selectionBasis"] = "score" if meets_score else "pending"
         paper["selectionReason"] = ("No connection to the visible graph yet" if meets_score and paper["id"] not in visible
-                                    else "Meets category and age-cohort cutoff" if meets_score
-                                    else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below category cutoff")
+                                    else "Meets category, age-cohort, and monthly density cutoffs" if meets_score
+                                    else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None
+                                    else "Below crowded-month category cutoff" if crowded else "Below category cutoff")
     catalog["selectionCalibration"] = {"at": STAMP, "targetVisible": policy["targetVisible"], "visibleCount": len(visible),
                                        "baseCutoff": cutoff, "categoryCutoffs": policy["categoryCutoffs"], "anchorCount": len(fixed),
                                        "cohorts": {cohort: {"guide": guide, "visibleCount": sum(p["id"] in visible and p["selectionCohort"] == cohort for p in papers),
                                                              "baseCutoff": bases[cohort], "categoryCutoffs": cohort_cutoffs[cohort],
                                                              "lowerGuide": round(guide * (1 - policy["countTolerance"])), "upperGuide": round(guide * (1 + policy["countTolerance"]))}
                                                    for cohort, guide in guides.items()},
+                                       "monthlyDensity": {"limit": policy["monthlyVisibleLimit"],
+                                                          "months": {month: {"baseCutoff": base,
+                                                                             "categoryCutoffs": {category: round(base * factor, 6) for category, factor in factors.items()},
+                                                                             "visibleCount": sum(p["id"] in visible and p["date"].startswith(month) for p in papers)}
+                                                                     for month, base in sorted(density_bases.items())}},
                                        "categoryCounts": {category: sum(p["id"] in visible and p["category"] == category for p in papers) for category in sorted(DOMAINS)}}
     changes = [{"id": p["id"], "score": p["score"], "previousScore": previous[p["id"]][0],
                 "status": p["status"], "previousStatus": previous[p["id"]][1]}
@@ -595,6 +815,7 @@ def score_and_export(catalog):
         "Reputation uses the strongest sourced company affiliation, curated author, or publication-linked author h-index / " + str(policy["authorHIndexScale"]) + ", scaled to 100; signals do not stack. "
         "Missing signals remain unknown and their weights are not reassigned. "
         "Category cutoffs are calibrated separately for mature and recent papers around a " + str(policy["targetVisible"]) + "-paper guide, staying stable within the configured count bands. "
+        "Crowded months raise category cutoffs to keep at most " + str(policy["monthlyVisibleLimit"]) + " visible papers, with learning anchors retained. "
         "Only learning anchors and their prerequisites are reserved; all other papers need qualifying evidence and an actual graph connection. Hugging Face features prioritize enrichment, not score.")
     catalog["papers"].sort(key=lambda p: (p["date"], p["id"]))
     details = {}
@@ -604,6 +825,8 @@ def score_and_export(catalog):
         details.setdefault(year, {})[paper["id"]] = {"abstract": paper.get("abstract"), "metadataSource": paper.get("metadataSource"), "dateBasis": paper.get("dateBasis"), "affiliationSource": paper.get("affiliationSource")}
         drop = {"abstract", "referencedPaperIds", "referencedArxivIds", "semanticScholarAliases", "metadataSource", "affiliationSource", "releaseDateSource", "referenceEvidenceComplete", "semanticScholarAuthors", "authorIdentitiesUpdatedAt", "authorIdentitiesCheckedAt"}
         record = {key: value for key, value in paper.items() if key not in drop}
+        if "openAlex" in record:
+            record["openAlex"] = {key: value for key, value in record["openAlex"].items() if key != "referencedWorkIds"}
         record["detailFile"] = "./data/details/" + year + ".json"
         index.append(record)
     (DATA / "details").mkdir(exist_ok=True)
@@ -623,7 +846,8 @@ def score_and_export(catalog):
                                  "exited": sum(p["status"] == "archived" and previous[p["id"]][1] == "active" for p in papers)}
     export = {"updatedAt": STAMP, "papers": index, "links": sorted(edges.values(), key=lambda e: (e["source"], e["target"], e["type"])),
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
-              "discovery": catalog.get("discovery"), "huggingFaceDiscovery": catalog.get("huggingFaceDiscovery"), "cutoff": cutoff, "policyVersion": policy["version"],
+              "discovery": catalog.get("discovery"), "huggingFaceDiscovery": catalog.get("huggingFaceDiscovery"),
+              "openAlexRefresh": catalog.get("openAlexRefresh"), "requestState": catalog.get("requestState"), "cutoff": cutoff, "policyVersion": policy["version"],
               "recentMonths": policy["recentMonths"], "categoryCutoffs": policy.get("categoryCutoffs", {}),
               "visibleCount": sum(p["status"] != "archived" for p in papers), "selectionCalibration": catalog["selectionCalibration"],
               "pipelineStatus": catalog["pipelineStatus"]}
@@ -638,7 +862,7 @@ def score_and_export(catalog):
             summary.write("## Research atlas update\n\n| Stage | Result |\n| --- | --- |\n")
             for label, result in catalog["pipelineStatus"].items():
                 summary.write("| " + label + " | " + str(result) + " |\n")
-            for stage in ("discovery", "huggingFaceDiscovery", "authorRefresh", "refresh"):
+            for stage in ("discovery", "huggingFaceDiscovery", "authorRefresh", "refresh", "openAlexRefresh", "requestState"):
                 summary.write("\n**" + stage + "**: `" + json.dumps(catalog.get(stage, {})) + "`\n")
 
 
@@ -654,9 +878,10 @@ def build():
 
 
 def main():
+    global REQUEST_STATE
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--discover", action="store_true", help="Discover recent arXiv papers; preserve a cursor for capped windows.")
-    parser.add_argument("--refresh", action="store_true", help="Refresh Semantic Scholar citation counts and reference links.")
+    parser.add_argument("--discover", action="store_true", help="Discover arXiv deposits through DataCite and Hugging Face.")
+    parser.add_argument("--refresh", action="store_true", help="Refresh due evidence from Semantic Scholar and OpenAlex.")
     parser.add_argument("--limit", type=int, default=1000, help="Maximum arXiv records scanned this run (not a selection cutoff).")
     parser.add_argument("--build", action="store_true", help="Write the deployable static site to dist/.")
     args = parser.parse_args()
@@ -667,15 +892,19 @@ def main():
         return 0
     catalog = json.loads((DATA / "catalog.json").read_text())
     validate(catalog)
+    REQUEST_STATE = catalog.setdefault("requestState", {})
+    for state in REQUEST_STATE.values():
+        state.update({"requestsThisRun": 0, "deferredThisRun": 0})
     try:
         if args.discover:
             discover(catalog, args.limit)
             discover_huggingface(catalog)
         if args.refresh:
-            refresh_author_reputation(catalog)
             refresh_citations(catalog)
+            refresh_author_reputation(catalog)
+            refresh_openalex(catalog)
         validate(catalog)
-    except (HTTPError, URLError, TimeoutError, ValueError, ET.ParseError) as error:
+    except (HTTPError, URLError, TimeoutError, ValueError) as error:
         print("Update stopped; the previous catalog and graph remain unchanged:", str(error), file=sys.stderr)
         return 1
     score_and_export(catalog)

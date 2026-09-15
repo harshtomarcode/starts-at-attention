@@ -44,6 +44,15 @@ function layout(){
  const dates=state.papers.map(p=>Date.parse(p.date));minDate=dates.length?Math.min(...dates):Date.UTC(2017,0,1);maxDate=dates.length?Math.max(...dates):Date.now();if(minDate===maxDate){minDate-=86400000;maxDate+=86400000}
  const left=width<600?58:76,lane=(width-left-22)/5;monthHeight=Math.max(65,(height-57)/7);const usable=(maxDate-minDate)/86400000/30.4375*monthHeight;worldHeight=usable+height;timeline.style.height=worldHeight*state.zoom+'px';
  state.nodes=state.papers.map(p=>{const index=domains.findIndex(d=>d.id===p.category);let hash=0;for(const c of p.id)hash=(hash*31+c.charCodeAt(0))>>>0;return {p,color:domains[index]?.color||domains[0].color,x:left+lane*(index+.5)+((hash%1000)/999-.5)*lane*.72,y:90+(Date.parse(p.date)-minDate)/(maxDate-minDate)*usable+((hash%7)-3)*2,r:p.score==null?1.6:1.4+16.6*Math.sqrt(Math.max(0,Math.min(1,p.score/100))),phase:hash*.013,fx:0,fy:0,vx:0,vy:0,lift:0}});
+ // Keep nearby bubbles apart while their positions remain inside the publication month and domain.
+ const cells=new Map();
+ for(const n of state.nodes){const key=n.p.date.slice(0,7)+'/'+n.p.category,index=domains.findIndex(d=>d.id===n.p.category),date=new Date(n.p.date);if(!cells.has(key))cells.set(key,{nodes:[],left:left+lane*index+4,right:left+lane*(index+1)-4,top:Math.max(65,90+(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),1)-minDate)/86400000/30.4375*monthHeight),bottom:90+(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,1)-minDate)/86400000/30.4375*monthHeight});cells.get(key).nodes.push(n)}
+ for(const cell of cells.values())for(let pass=0;pass<60;pass++){
+  let moved=false;
+  for(let i=0;i<cell.nodes.length;i++)for(let j=i+1;j<cell.nodes.length;j++){const a=cell.nodes[i],b=cell.nodes[j];let dx=b.x-a.x,dy=b.y-a.y,distance=Math.hypot(dx,dy),gap=a.r+b.r+6;if(distance>=gap)continue;if(distance<.001){dx=Math.cos(a.phase);dy=Math.sin(a.phase);distance=1}const push=(gap-distance)*.51;dx=dx/distance*push;dy=dy/distance*push;a.x-=dx;a.y-=dy;b.x+=dx;b.y+=dy;moved=true}
+  for(const n of cell.nodes){n.x=Math.max(cell.left+n.r,Math.min(cell.right-n.r,n.x));n.y=Math.max(cell.top+n.r+3,Math.min(cell.bottom-n.r-3,n.y))}
+  if(!moved)break;
+ }
  state.nodes.sort((a,b)=>(a.p.score??0)-(b.p.score??0));nodeById=new Map(state.nodes.map(n=>[n.p.id,n]));prepareScene();scheduleDraw();
 }
 function paint(){

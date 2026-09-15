@@ -56,7 +56,11 @@ GitHub's standard hosted runners are currently
 The workflow uses no paid model calls. Scheduled runs may be delayed; GitHub may
 [disable inactive schedules after 60 days](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows).
 
-arXiv supplies broad discovery, first-submission dates, authors, and abstracts.
+[DataCite](https://info.arxiv.org/help/bulk_data/index.html) supplies broad discovery
+from arXiv's own metadata deposits, including first-submission dates, authors, and
+abstracts. This replaces the throttled arXiv search API. Discovery scans registration
+dates to catch delayed deposits, but positions papers by their original v1 submission
+date. It resumes through a fixed-window cursor and checks the ten relevant categories.
 [Hugging Face Daily Papers](https://huggingface.co/docs/huggingface_hub/package_reference/hf_api#huggingface_hub.HfApi.list_daily_papers)
 adds a rolling seven-day community shortlist. The feeds deduplicate by arXiv ID and
 fail independently: a throttled or incomplete source records a warning and a resume
@@ -69,18 +73,31 @@ submitters are not treated as publication affiliations. New HF-only dates are
 labeled provisional until arXiv verifies them. Existing canonical metadata is retained.
 
 Semantic Scholar supplies indexed citation counts, references, and author profiles.
-Its shared unauthenticated API can throttle requests; an optional
-`SEMANTIC_SCHOLAR_API_KEY` repository secret or local environment variable improves
-access. Provider failures preserve saved evidence and valid batches. New papers
-can acquire author identities directly through their arXiv ID in the same run;
-empty author responses remain missing and are retried daily, while valid profiles
-refresh weekly. Two batches of recent papers missing lineage alternate with one
-historical refresh batch, and HF-featured papers are prioritized within each rotation.
-Daily work is bounded to 500 paper-author lookups, 5,000 author profiles, and 1,000
-citation/reference lookups so the backlog rotates without exhausting the job's
-30-minute runtime. Scoring still covers the entire retained catalog on every run.
-The daily discovery cursor resumes capped windows, with overlapping dates to catch
-indexing delays. Coverage is arXiv-focused, not an exhaustive census of AI research.
+The updater refreshes complete active-paper evidence weekly and archived-paper
+counts monthly. Missing evidence is eligible again after 24 hours. Stable reference
+lists are reused; the citation batch also supplies author identities before the
+profile stage, avoiding duplicate lookups. Author profiles refresh weekly. Two
+batches of recent papers missing lineage alternate with one historical batch.
+
+[OpenAlex](https://help.openalex.org/data/works/citations/) independently supplements
+citation and reference evidence in batches of 30 papers. Matches require the exact
+arXiv identity and normalized title, and ambiguous records are rejected. Its
+observations are stored separately; counts are never added together or substituted
+for existing Semantic Scholar measurements. Missing counts can be filled from
+OpenAlex, and additional edges are explicitly labeled with that provider.
+
+All stages share per-provider pacing. Unauthenticated Semantic Scholar requests
+are at least 6.1 seconds apart; authenticated requests are at least 1.1 seconds
+apart. A 429 stops further requests to that provider for at least an hour, or longer
+when its Retry-After header requires it. The cooldown persists across runs, while
+other sources continue. Optional `SEMANTIC_SCHOLAR_API_KEY` and `OPENALEX_API_KEY`
+repository secrets improve access; neither is required for the public feed setup.
+
+Daily work is bounded to 500 paper-author lookups, 5,000 author profiles, 1,000
+Semantic Scholar paper lookups, and 400 OpenAlex paper lookups. Fresh records are
+skipped rather than using the budget on the same collection again. Scoring still
+covers the entire retained catalog every run. Coverage is arXiv-focused, not an
+exhaustive census of AI research.
 
 ## Data and ranking
 
@@ -102,7 +119,7 @@ prerequisites. Bubble radius follows the square root of the consequentiality sco
 from 1.4 to 18 CSS pixels at default zoom. Hovering shows the age-dependent weights and the weighted citation and
 author/company contributions. Missing citation data appears as a hollow bubble.
 
-Policy version 5 preserves the linear transition between two signals on a 0–100 scale:
+Policy version 6 preserves the linear transition between two signals on a 0–100 scale:
 
 ```
 citationWeight = min(1, age_in_months / 24)
@@ -149,6 +166,10 @@ each group's base by:
 
 Lower factors mean easier admission. This preserves the larger systems collection.
 The factors are policy choices, not empirical measures of field importance.
+Each calendar month also has a 40-paper density ceiling, enforced with higher
+category-adjusted admission thresholds where necessary. Learning anchors are
+exempt. This prevents one busy week from filling the newest end of the timeline;
+bubbles also spread within their month and category lane to reduce overlap.
 An explicit editorial `outOfScopeReason` excludes unrelated applications from the
 visible map while preserving their metadata and measured scores in the catalog.
 Each group's cutoff stays unchanged while its connected count is within 8% of the
