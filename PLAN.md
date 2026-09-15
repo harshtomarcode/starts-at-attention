@@ -191,3 +191,11 @@ The September 8 snapshot has 799 visible papers, including 244 from the last two
 ## Recent timeline density — 650-paper target
 
 The user subsequently requested a higher cutoff to thin the crowded recent end of the timeline. Reduce `targetVisible` from 800 to 650 while retaining policy version 4's age-dependent equation and category factors. Recalibration raises the base cutoff to 46.4709 and the systems cutoff to 32.52963. The snapshot now displays exactly 650 papers, including 95 from the last two years and 44 recent systems papers. Of the 149 papers removed from view, 136 were released in September 2026; all remain in the tracked catalog. Existing scores, foundations, and reviewed learning selections are preserved. Daily updates now recalibrate toward 650.
+
+## Adaptive membership and independent discovery — policy version 5
+
+The September 14 investigation found 4,014 tracked papers through September 10 but no visible papers after September 2. Version 4 reserved 647 of 650 places, and empty author responses had incorrectly delayed enrichment for a week. The September 13 and 14 updater runs also stopped during arXiv discovery (timeout and HTTP 429), preventing later stages from running.
+
+The user asked for the collection to wax and wane as papers gain or lose importance and suggested Hugging Face Papers. Preserve the score equation but reserve only narrative anchors, protected foundations, and their prerequisite closure. Other historical and curated records can enter or leave. Calibrate mature and recent admission separately around 475 and 175 papers, retaining thresholds inside an 8% count band. Use a systems factor of 0.25 to preserve stronger systems coverage. These are guides rather than fixed quotas.
+
+Add Hugging Face Daily Papers as an independent discovery feed with separate feature/vote provenance. Repair partial arXiv discovery, daily retries for missing author identities, same-run arXiv-ID author lookup, and balanced recent/historical reference enrichment. Export pipeline counts and exclusion reasons and write a GitHub run summary so discovery, enrichment, selection, and publishing can be distinguished.

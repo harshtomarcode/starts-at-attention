@@ -71,6 +71,10 @@ def validate(catalog):
     policy = catalog["policy"]
     if not isinstance(policy["targetVisible"], int) or policy["targetVisible"] < 1:
         raise ValueError("Invalid visible-paper target")
+    if not isinstance(policy["recentTarget"], int) or not 0 < policy["recentTarget"] < policy["targetVisible"]:
+        raise ValueError("Recent-paper guide must be smaller than the overall guide")
+    if not 0 <= policy["countTolerance"] <= .25 or any(identity not in ids for identity in policy["learningAnchors"]):
+        raise ValueError("Invalid selection tolerance or learning anchor")
     if not 0 < policy["minimumCutoff"] <= 100:
         raise ValueError("Invalid minimum cutoff")
     if set(policy["categoryFactors"]) != DOMAINS or any(not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in policy["categoryFactors"].values()):
@@ -106,15 +110,23 @@ def discover(catalog, limit):
     query = "(" + category_query + ") AND submittedDate:[" + begin + " TO " + end + "]"
     known = {paper["id"]: paper for paper in catalog["papers"]}
     processed = added = 0
-    total = offset + 1
-    while processed < limit and offset < total:
+    total = None
+    provider_error = None
+    rate_limited = False
+    print("Discovery: arXiv window", begin, "to", end, "from offset", offset, flush=True)
+    while processed < limit and (total is None or offset < total):
         amount = min(100, limit - processed)
         params = {"search_query": query, "start": offset, "max_results": amount, "sortBy": "submittedDate", "sortOrder": "ascending"}
-        root = ET.fromstring(request_bytes(Request(ARXIV + "?" + urlencode(params), headers=HEADERS)))
-        total = int(root.findtext("o:totalResults", "0", NS))
-        entries = root.findall("a:entry", NS)
-        if not entries and offset < total:
-            raise ValueError("arXiv returned an incomplete result page")
+        try:
+            root = ET.fromstring(request_bytes(Request(ARXIV + "?" + urlencode(params), headers=HEADERS)))
+            total = int(root.findtext("o:totalResults", "", NS))
+            entries = root.findall("a:entry", NS)
+            if not entries and offset < total:
+                raise ValueError("arXiv returned an incomplete result page")
+        except (HTTPError, URLError, TimeoutError, ConnectionError, ET.ParseError, ValueError) as error:
+            provider_error = "arXiv discovery unavailable: " + str(error)
+            rate_limited = isinstance(error, HTTPError) and error.code == 429
+            break
         for entry in entries:
             url = entry.findtext("a:id", "", NS)
             identity = re.sub(r"v\d+$", "", url.rsplit("/abs/", 1)[-1])
@@ -139,6 +151,9 @@ def discover(catalog, limit):
                 paper.update({"abstract": abstract, "title": title,
                               "authors": [node.findtext("a:name", "", NS) for node in entry.findall("a:author", NS)],
                               "metadataUpdatedAt": STAMP})
+                if paper.get("metadataSource") == "https://huggingface.co/api/daily_papers":
+                    paper.update({"date": published, "dateBasis": "First arXiv submission", "metadataSource": ARXIV,
+                                  "category": classify(title, abstract, categories)})
                 if affiliations:
                     paper.update({"lab": " / ".join(affiliations), "affiliationSource": "https://arxiv.org/abs/" + identity})
                 continue
@@ -163,18 +178,113 @@ def discover(catalog, limit):
         processed += len(entries)
         if offset < total and processed < limit:
             time.sleep(3.1)
-    complete = offset >= total
+    complete = total is not None and offset >= total and provider_error is None
     catalog["discoveryCursor"] = None if complete else {"begin": begin, "end": end, "offset": offset}
     if complete:
         catalog["lastDiscoveryAt"] = datetime.strptime(end[:8], "%Y%m%d").replace(tzinfo=timezone.utc).isoformat()
-    catalog["discovery"] = {"source": "arXiv", "scanned": processed, "added": added, "windowComplete": complete, "totalInWindow": total, "at": STAMP}
+    catalog["discovery"] = {"source": "arXiv", "scanned": processed, "added": added, "windowComplete": complete,
+                            "totalInWindow": total, "error": provider_error, "rateLimited": rate_limited,
+                            "windowBegin": begin, "windowEnd": end, "nextOffset": None if complete else offset, "at": STAMP}
+    if provider_error:
+        print("::warning::" + provider_error + ". Successful pages retained; discovery will resume at offset " + str(offset) + ".")
     print("Discovery: scanned", processed, "records, added", added, "candidates;", "window complete" if complete else "will resume at " + str(offset))
 
 
-def refresh_citations(catalog):
+def discover_huggingface(catalog, limit=1000):
+    """Discover community-selected papers without treating votes as citation evidence."""
+    endpoint = "https://huggingface.co/api/daily_papers"
+    cursor = catalog.get("huggingFaceDiscoveryCursor") or {
+        "date": (NOW.date() - timedelta(days=6)).isoformat(), "end": NOW.date().isoformat(), "page": 0, "offset": 0}
+    day, end, page, offset = cursor["date"], cursor["end"], cursor["page"], cursor.get("offset", 0)
+    known = {p["id"]: p for p in catalog["papers"]}
+    scanned = added = skipped = 0
+    latest = catalog.get("huggingFaceDiscovery", {}).get("latestPublicationDate")
+    error = None
+    rate_limited = False
+    while day <= end and scanned < limit:
+        params = {"date": day, "sort": "publishedAt", "limit": 100, "p": page}
+        try:
+            rows = json.loads(request_bytes(Request(endpoint + "?" + urlencode(params), headers=HEADERS)))
+            if not isinstance(rows, list):
+                raise ValueError("Unexpected daily-paper response")
+        except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
+            error = "Hugging Face discovery unavailable: " + str(exc)
+            rate_limited = isinstance(exc, HTTPError) and exc.code == 429
+            break
+        while offset < len(rows) and scanned < limit:
+            row = rows[offset]
+            offset += 1
+            scanned += 1
+            data = row.get("paper") if isinstance(row, dict) else None
+            if not isinstance(data, dict):
+                skipped += 1
+                continue
+            identity = re.sub(r"v\d+$", "", str(data.get("id", "")))
+            title = " ".join(data["title"].split()) if isinstance(data.get("title"), str) else ""
+            abstract = " ".join(data["summary"].split()) if isinstance(data.get("summary"), str) else ""
+            authors = data.get("authors") if isinstance(data.get("authors"), list) else []
+            published = str(data.get("publishedAt") or "")[:10]
+            try:
+                datetime.strptime(published, "%Y-%m-%d")
+                if not re.fullmatch(r"\d{4}\.\d{4,5}", identity) or not title or not abstract:
+                    raise ValueError("Incomplete paper metadata")
+            except ValueError:
+                skipped += 1
+                continue
+            latest = max(latest or published, published)
+            paper = known.get(identity)
+            if paper is None:
+                paper = {"id": identity, "title": title, "shortTitle": title,
+                         "date": published, "dateBasis": "Hugging Face publication date; awaiting arXiv verification",
+                         "category": classify(title, abstract, []), "tags": ["new research"],
+                         "family": None, "lab": None,
+                         "authors": [a["name"] for a in authors if isinstance(a, dict) and isinstance(a.get("name"), str) and a["name"].strip()],
+                         "source": "https://arxiv.org/abs/" + identity, "abstract": abstract,
+                         "summary": "", "why": "Newly discovered paper; editorial review is pending.",
+                         "citationCount": None, "score": None, "curated": False, "protected": False,
+                         "status": "candidate", "prerequisites": [], "discoveredAt": STAMP,
+                         "metadataSource": endpoint, "metadataUpdatedAt": STAMP}
+                catalog["papers"].append(paper)
+                known[identity] = paper
+                added += 1
+            previous = paper.get("huggingFace", {})
+            votes = data.get("upvotes")
+            featured = data.get("submittedOnDailyAt")
+            paper["huggingFace"] = {"url": "https://huggingface.co/papers/" + identity,
+                                    "featuredAt": featured if isinstance(featured, str) and featured else day,
+                                    "upvotes": votes if type(votes) is int and votes >= 0 else previous.get("upvotes"),
+                                    "updatedAt": STAMP}
+        if offset >= len(rows):
+            if len(rows) < 100:
+                day = (datetime.strptime(day, "%Y-%m-%d").date() + timedelta(days=1)).isoformat()
+                page = 0
+            else:
+                page += 1
+            offset = 0
+    complete = day > end and error is None
+    catalog["huggingFaceDiscoveryCursor"] = None if complete else {"date": day, "end": end, "page": page, "offset": offset}
+    catalog["huggingFaceDiscovery"] = {"source": "Hugging Face Daily Papers", "scanned": scanned, "added": added,
+                                        "skipped": skipped, "windowComplete": complete, "windowEnd": end,
+                                        "latestPublicationDate": latest, "error": error, "rateLimited": rate_limited,
+                                        "cursor": catalog["huggingFaceDiscoveryCursor"], "at": STAMP}
+    if error:
+        print("::warning::" + error + ". Saved papers retained; the next run resumes this feed.")
+    print("Hugging Face discovery:", scanned, "scanned,", added, "added,", skipped, "skipped;", "window complete" if complete else "will resume", flush=True)
+
+
+def refresh_citations(catalog, limit=1000):
     papers = [p for p in catalog["papers"] if p.get("semanticScholarId") or re.fullmatch(r"\d{4}\.\d{4,5}", p["id"])]
-    # Rotate through the collection when the shared provider stops a run early.
-    papers.sort(key=lambda p: (p.get("citationCheckedAt", ""), -(p.get("citationCount") or 0)))
+    # Give new papers missing lineage an early turn without starving historical refreshes.
+    pending, background = [], []
+    for paper in papers:
+        recent = (NOW.date() - datetime.strptime(paper["date"], "%Y-%m-%d").date()).days < catalog["policy"]["recentMonths"] * 30.4375
+        (pending if recent and (not paper.get("semanticScholarId") or not paper.get("referenceEvidenceComplete")) else background).append(paper)
+    pending.sort(key=lambda p: (p.get("citationCheckedAt", ""), not bool(p.get("huggingFace")), -(consequentiality(p, catalog["policy"], catalog.get("authorMetrics", {}))["score"] or 0), -datetime.strptime(p["date"], "%Y-%m-%d").toordinal()))
+    background.sort(key=lambda p: (p.get("citationCheckedAt", ""), -(p.get("citationCount") or 0)))
+    papers = []
+    for start in range(0, max(len(pending), len(background) * 2), 100):
+        papers.extend(pending[start:start + 100])
+        papers.extend(background[start // 2:start // 2 + 50])
     for paper in papers:
         paper["citationFresh"] = False
     headers = {**HEADERS, "Content-Type": "application/json"}
@@ -184,8 +294,8 @@ def refresh_citations(catalog):
     matched = checked = 0
     rate_limited = False
     provider_error = None
-    for start in range(0, len(papers), 50):
-        batch = papers[start:start + 50]
+    for start in range(0, min(len(papers), limit), 50):
+        batch = papers[start:min(start + 50, limit)]
         ids = [p.get("semanticScholarId") or "ARXIV:" + p["id"] for p in batch]
         payload = json.dumps({"ids": ids}).encode()
         try:
@@ -229,8 +339,11 @@ def refresh_citations(catalog):
                           "citationProvider": "Semantic Scholar", "citationUpdatedAt": STAMP,
                           "citationSourceUrl": result.get("url"), "citationFresh": True})
             if isinstance(result.get("authors"), list):
-                paper["semanticScholarAuthors"] = [a for a in result["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
-                paper["authorIdentitiesUpdatedAt"] = STAMP
+                paper["authorIdentitiesCheckedAt"] = STAMP
+                authors = [a for a in result["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
+                if authors:
+                    paper["semanticScholarAuthors"] = authors
+                    paper["authorIdentitiesUpdatedAt"] = STAMP
             if isinstance(result.get("references"), list) and result["references"]:
                 references = [r for r in result["references"] if isinstance(r, dict)]
                 paper["referencedPaperIds"] = [r["paperId"] for r in references if r.get("paperId")]
@@ -238,69 +351,89 @@ def refresh_citations(catalog):
                 paper["referenceEvidenceComplete"] = True
             matched += 1
         print("Citation progress:", checked, "checked of", len(papers), flush=True)
-        if start + 50 < len(papers):
+        if start + 50 < min(len(papers), limit):
             time.sleep(3.1)
     if provider_error:
         print("::warning::" + provider_error + ". Prior evidence retained; the next run starts with unchecked papers.")
-    catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers), "complete": matched == len(papers), "rateLimited": rate_limited, "error": provider_error, "remaining": len(papers) - checked, "at": STAMP}
+    catalog["refresh"] = {"provider": "Semantic Scholar", "matched": matched, "checked": checked, "requested": len(papers),
+                          "budget": limit, "complete": matched == len(papers), "rateLimited": rate_limited,
+                          "error": provider_error, "remaining": len(papers) - checked, "at": STAMP}
     print("Citation refresh:", matched, "matched of", len(papers), "requested; unmatched records retain prior evidence.")
 
 
-def refresh_author_reputation(catalog):
+def refresh_author_reputation(catalog, paper_limit=500, profile_limit=5000):
     """Refresh publication-linked author profiles weekly; retain partial evidence."""
-    recent = [p for p in catalog["papers"] if p.get("semanticScholarId") and
+    recent = [p for p in catalog["papers"] if (p.get("semanticScholarId") or re.fullmatch(r"\d{4}\.\d{4,5}", p["id"])) and
               (NOW.date() - datetime.strptime(p["date"], "%Y-%m-%d").date()).days < catalog["policy"]["recentMonths"] * 30.4375]
     stale = (NOW - timedelta(days=7)).isoformat()
     headers = {**HEADERS, "Content-Type": "application/json"}
     if os.environ.get("SEMANTIC_SCHOLAR_API_KEY"):
         headers["x-api-key"] = os.environ["SEMANTIC_SCHOLAR_API_KEY"]
-    missing = [p for p in recent if p.get("authorIdentitiesUpdatedAt", "") < stale]
+    missing = [p for p in recent if (not p.get("semanticScholarAuthors") and p.get("authorIdentitiesCheckedAt", "")[:10] != STAMP[:10])
+               or (p.get("semanticScholarAuthors") and p.get("authorIdentitiesUpdatedAt", "") < stale)]
     cache = catalog.setdefault("authorMetrics", {})
-    matched = 0
+    missing.sort(key=lambda p: (p.get("authorIdentitiesCheckedAt", ""), not bool(p.get("huggingFace")), -(consequentiality(p, catalog["policy"], cache)["score"] or 0), -datetime.strptime(p["date"], "%Y-%m-%d").toordinal()))
+    matched = profiles_checked = 0
+    identities_checked = identities_matched = 0
     error = None
-    for start in range(0, len(missing), 100):
-        batch = {p["semanticScholarId"]: p for p in missing[start:start + 100]}
+    for start in range(0, min(len(missing), paper_limit), 100):
+        batch = missing[start:min(start + 100, paper_limit)]
+        ids = [p.get("semanticScholarId") or "ARXIV:" + p["id"] for p in batch]
         try:
-            rows = json.loads(request_bytes(Request(S2 + "?fields=externalIds,authors", data=json.dumps({"ids": list(batch)}).encode(), headers=headers)))
-            if not isinstance(rows, list):
+            rows = json.loads(request_bytes(Request(S2 + "?fields=externalIds,authors", data=json.dumps({"ids": ids}).encode(), headers=headers)))
+            if not isinstance(rows, list) or len(rows) != len(batch):
                 raise ValueError("Unexpected paper-author response")
-            for row in rows:
-                if not isinstance(row, dict) or row.get("paperId") not in batch:
+            for paper, row in zip(batch, rows):
+                paper["authorIdentitiesCheckedAt"] = STAMP
+                identities_checked += 1
+                if not isinstance(row, dict) or not row.get("paperId"):
                     continue
-                paper = batch[row["paperId"]]
-                arxiv = (row.get("externalIds") or {}).get("ArXiv")
-                if arxiv and arxiv != paper["id"]:
+                ext = row.get("externalIds") if isinstance(row.get("externalIds"), dict) else {}
+                arxiv = ext.get("ArXiv")
+                if (arxiv and arxiv != paper["id"]) or not (arxiv == paper["id"] or paper.get("semanticScholarId") == row["paperId"]):
                     continue
+                paper["semanticScholarId"] = row["paperId"]
                 if isinstance(row.get("authors"), list):
-                    paper["semanticScholarAuthors"] = [a for a in row["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
-                    paper["authorIdentitiesUpdatedAt"] = STAMP
-            print("Author identity progress:", min(start + 100, len(missing)), "of", len(missing), flush=True)
+                    authors = [a for a in row["authors"] if isinstance(a, dict) and a.get("authorId") and a.get("name")]
+                    if authors:
+                        paper["semanticScholarAuthors"] = authors
+                        paper["authorIdentitiesUpdatedAt"] = STAMP
+                        identities_matched += 1
+            print("Author identity progress:", identities_checked, "of", len(missing), flush=True)
         except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
             error = str(exc)
             break
-        if start + 100 < len(missing):
+        if start + 100 < min(len(missing), paper_limit):
             time.sleep(3.1)
     ids = sorted({a["authorId"] for p in recent for a in p.get("semanticScholarAuthors", []) if cache.get(a["authorId"], {}).get("updatedAt", "") < stale})
+    featured_authors = {a["authorId"] for p in recent if p.get("huggingFace") for a in p.get("semanticScholarAuthors", [])}
+    profile_checks = catalog.setdefault("authorProfileChecks", {})
+    ids.sort(key=lambda identity: (profile_checks.get(identity, cache.get(identity, {}).get("updatedAt", "")), identity not in featured_authors, identity))
     # Author profiles are looked up by IDs attached to these publications, never by a name search.
-    for start in range(0, len(ids), 500):
-        batch = ids[start:start + 500]
+    for start in range(0, min(len(ids), profile_limit), 500):
+        batch = ids[start:min(start + 500, profile_limit)]
         try:
             url = "https://api.semanticscholar.org/graph/v1/author/batch?fields=name,hIndex,citationCount,paperCount,url"
             rows = json.loads(request_bytes(Request(url, data=json.dumps({"ids": batch}).encode(), headers=headers)))
             if not isinstance(rows, list):
                 raise ValueError("Unexpected author-profile response")
+            for identity in batch:
+                profile_checks[identity] = STAMP
+            profiles_checked += len(batch)
             for author in rows:
                 if not isinstance(author, dict) or author.get("authorId") not in batch or not isinstance(author.get("hIndex"), int) or author["hIndex"] < 0:
                     continue
                 cache[author["authorId"]] = {**author, "updatedAt": STAMP}
                 matched += 1
-            print("Author profile progress:", min(start + 500, len(ids)), "of", len(ids), flush=True)
+            print("Author profile progress:", min(start + 500, len(ids), profile_limit), "of", len(ids), flush=True)
         except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError) as exc:
             error = str(exc)
             break
-        if start + 500 < len(ids):
+        if start + 500 < min(len(ids), profile_limit):
             time.sleep(3.1)
-    catalog["authorRefresh"] = {"at": STAMP, "requestedProfiles": len(ids), "matchedProfiles": matched, "cachedProfiles": len(cache), "error": error}
+    catalog["authorRefresh"] = {"at": STAMP, "requestedPapers": len(missing), "checkedPapers": identities_checked,
+                               "matchedPapers": identities_matched, "requestedProfiles": len(ids), "checkedProfiles": profiles_checked, "matchedProfiles": matched,
+                               "paperBudget": paper_limit, "profileBudget": profile_limit, "cachedProfiles": len(cache), "error": error}
     if error:
         print("::warning::Author evidence refresh incomplete; saved profiles retained:", error)
 
@@ -369,62 +502,82 @@ def score_and_export(catalog):
                 edges[(identity, paper["id"], "prerequisite")] = {"source": identity, "target": paper["id"], "type": "prerequisite", "reason": prerequisite.get("reason", "Curated prerequisite") if isinstance(prerequisite, dict) else "Curated prerequisite"}
     previous = {p["id"]: (p.get("score"), p.get("status", "candidate")) for p in papers}
     policy = catalog["policy"]
-    fixed, reviewed = set(), set()
+    fixed = {p["id"] for p in papers if p.get("protected")} | set(policy["learningAnchors"])
+    remaining = list(fixed)
+    while remaining:
+        for prerequisite in by_arxiv[remaining.pop()].get("prerequisites", []):
+            identity = prerequisite if isinstance(prerequisite, str) else prerequisite["id"]
+            if identity in by_arxiv and identity not in fixed:
+                fixed.add(identity)
+                remaining.append(identity)
     for paper in papers:
         paper.update(consequentiality(paper, policy, catalog.get("authorMetrics", {})))
-        recent = paper["scoreComponents"]["ageMonths"] < policy["recentMonths"]
-        filtered = recent or paper.get("selectionPolicy") == "recent-score"
-        if paper.get("protected") or (not filtered and paper.get("status") != "archived"):
-            fixed.add(paper["id"])
-        elif recent and policy.get("allowReviewedRecent") and paper.get("curated") and paper.get("why") and paper.get("source"):
-            reviewed.add(paper["id"])
-        if filtered:
-            paper["selectionPolicy"] = "recent-score"
+        paper["selectionCohort"] = "recent" if paper["scoreComponents"]["ageMonths"] < policy["recentMonths"] else "mature"
+        paper["selectionPolicy"] = "learning-anchor" if paper["id"] in fixed else "cohort-score"
     factors = policy["categoryFactors"]
-    optional = [p for p in papers if p["id"] not in fixed | reviewed and p.get("selectionPolicy") == "recent-score" and p["score"] is not None]
+    optional = [p for p in papers if p["id"] not in fixed and p["score"] is not None]
+    guides = {"mature": policy["targetVisible"] - policy["recentTarget"], "recent": policy["recentTarget"]}
+    bases = {cohort: policy.get("cohortBaseCutoffs", {}).get(cohort, policy["minimumCutoff"]) for cohort in guides}
 
-    def admitted(base):
-        thresholds = {category: round(min(100, base * factor), 6) for category, factor in factors.items()}
-        eligible = fixed | reviewed | {p["id"] for p in optional if p["score"] >= thresholds[p["category"]]}
+    def admitted(cutoffs):
+        thresholds = {cohort: {category: round(min(100, base * factor), 6) for category, factor in factors.items()} for cohort, base in cutoffs.items()}
+        eligible = fixed | {p["id"] for p in optional if p["score"] >= thresholds[p["selectionCohort"]][p["category"]]}
         connected = {endpoint for e in edges.values() if e["source"] in eligible and e["target"] in eligible
                      for endpoint in (e["source"], e["target"])}
         return fixed | (eligible & connected)
 
-    # Find the category-adjusted score boundary closest to the visible-paper target.
-    # This changes admission, never the underlying score or missing evidence.
-    levels = sorted({policy["minimumCutoff"], 100.0} | {
-        round(max(policy["minimumCutoff"], min(100, p["score"] / factors[p["category"]])), 6) for p in optional})
-    low, high = 0, len(levels) - 1
-    best = None
-    while low <= high:
-        mid = (low + high) // 2
-        base = levels[mid]
-        selected = admitted(base)
-        count = len(selected)
-        quality = (abs(count - policy["targetVisible"]), count > policy["targetVisible"], -base)
-        if best is None or quality < best[0]:
-            best = (quality, base, selected)
-        if count > policy["targetVisible"]:
-            low = mid + 1
-        else:
-            high = mid - 1
-    cutoff, visible = best[1], best[2]
+    # Recent reputation and mature citation signals get separate admission boundaries.
+    # Keep boundaries steady inside the count bands, allowing membership to grow and shrink.
+    fresh = set(policy.get("cohortBaseCutoffs", {})) != set(guides)
+    for _ in range(2):
+        for cohort, guide in guides.items():
+            members = {p["id"] for p in papers if p["selectionCohort"] == cohort}
+            count = len(admitted(bases) & members)
+            if not fresh and round(guide * (1 - policy["countTolerance"])) <= count <= round(guide * (1 + policy["countTolerance"])):
+                continue
+            levels = sorted({policy["minimumCutoff"], 100.0} | {
+                round(max(policy["minimumCutoff"], min(100, p["score"] / factors[p["category"]])), 6)
+                for p in optional if p["selectionCohort"] == cohort})
+            low, high, best = 0, len(levels) - 1, None
+            while low <= high:
+                mid = (low + high) // 2
+                base = levels[mid]
+                count = len(admitted({**bases, cohort: base}) & members)
+                quality = (abs(count - guide), count > guide, -base)
+                if best is None or quality < best[0]:
+                    best = (quality, base)
+                if count > guide:
+                    low = mid + 1
+                else:
+                    high = mid - 1
+            bases[cohort] = best[1]
+        fresh = False
+    visible = admitted(bases)
+    policy["cohortBaseCutoffs"] = bases
+    cohort_cutoffs = {cohort: {category: round(min(100, base * factor), 6) for category, factor in factors.items()} for cohort, base in bases.items()}
+    cutoff = bases["recent"]
     policy["cutoff"] = cutoff
-    policy["categoryCutoffs"] = {category: round(min(100, cutoff * factor), 6) for category, factor in factors.items()}
+    policy["categoryCutoffs"] = cohort_cutoffs["recent"]
     for paper in papers:
         paper["status"] = "active" if paper["id"] in visible else "archived"
         if paper["id"] in fixed:
-            paper["selectionBasis"] = "foundation" if paper.get("protected") else "historical"
+            paper["selectionBasis"] = "foundation" if paper.get("protected") else "learning-anchor"
+            paper["selectionReason"] = "Learning-path anchor or prerequisite"
+            paper.pop("selectionThreshold", None)
             continue
-        threshold = policy["categoryCutoffs"][paper["category"]]
+        threshold = cohort_cutoffs[paper["selectionCohort"]][paper["category"]]
         meets_score = paper["score"] is not None and paper["score"] >= threshold
         paper["selectionThreshold"] = threshold
-        paper["selectionBasis"] = "score" if meets_score else "editorial" if paper["id"] in reviewed else "pending"
-        paper["selectionReason"] = ("No connection to the visible graph yet" if (meets_score or paper["id"] in reviewed) and paper["id"] not in visible
-                                    else "Meets category cutoff" if meets_score else "Reviewed contribution to the learning path" if paper["id"] in reviewed
+        paper["selectionBasis"] = "score" if meets_score else "pending"
+        paper["selectionReason"] = ("No connection to the visible graph yet" if meets_score and paper["id"] not in visible
+                                    else "Meets category and age-cohort cutoff" if meets_score
                                     else "Awaiting qualifying citation or reputation evidence" if paper["score"] is None else "Below category cutoff")
     catalog["selectionCalibration"] = {"at": STAMP, "targetVisible": policy["targetVisible"], "visibleCount": len(visible),
-                                       "baseCutoff": cutoff, "categoryCutoffs": policy["categoryCutoffs"],
+                                       "baseCutoff": cutoff, "categoryCutoffs": policy["categoryCutoffs"], "anchorCount": len(fixed),
+                                       "cohorts": {cohort: {"guide": guide, "visibleCount": sum(p["id"] in visible and p["selectionCohort"] == cohort for p in papers),
+                                                             "baseCutoff": bases[cohort], "categoryCutoffs": cohort_cutoffs[cohort],
+                                                             "lowerGuide": round(guide * (1 - policy["countTolerance"])), "upperGuide": round(guide * (1 + policy["countTolerance"]))}
+                                                   for cohort, guide in guides.items()},
                                        "categoryCounts": {category: sum(p["id"] in visible and p["category"] == category for p in papers) for category in sorted(DOMAINS)}}
     changes = [{"id": p["id"], "score": p["score"], "previousScore": previous[p["id"]][0],
                 "status": p["status"], "previousStatus": previous[p["id"]][1]}
@@ -436,31 +589,52 @@ def score_and_export(catalog):
         "Citation signal = min(100, citations × 100 / " + str(policy["citationScale"]) + "). "
         "Reputation uses the strongest sourced company affiliation, curated author, or publication-linked author h-index / " + str(policy["authorHIndexScale"]) + ", scaled to 100; signals do not stack. "
         "Missing signals remain unknown and their weights are not reassigned. "
-        "Category cutoffs are recalibrated toward " + str(policy["targetVisible"]) + " visible papers. "
-        "Historical selections, protected foundations and reviewed recent learning contributions remain available; recent nodes require a citation or curated prerequisite connection.")
+        "Category cutoffs are calibrated separately for mature and recent papers around a " + str(policy["targetVisible"]) + "-paper guide, staying stable within the configured count bands. "
+        "Only learning anchors and their prerequisites are reserved; all other papers need qualifying evidence and an actual graph connection. Hugging Face features prioritize enrichment, not score.")
     catalog["papers"].sort(key=lambda p: (p["date"], p["id"]))
     details = {}
     index = []
     for paper in catalog["papers"]:
         year = paper["date"][:4]
         details.setdefault(year, {})[paper["id"]] = {"abstract": paper.get("abstract"), "metadataSource": paper.get("metadataSource"), "dateBasis": paper.get("dateBasis"), "affiliationSource": paper.get("affiliationSource")}
-        drop = {"abstract", "referencedPaperIds", "referencedArxivIds", "semanticScholarAliases", "metadataSource", "affiliationSource", "releaseDateSource", "referenceEvidenceComplete", "semanticScholarAuthors", "authorIdentitiesUpdatedAt"}
+        drop = {"abstract", "referencedPaperIds", "referencedArxivIds", "semanticScholarAliases", "metadataSource", "affiliationSource", "releaseDateSource", "referenceEvidenceComplete", "semanticScholarAuthors", "authorIdentitiesUpdatedAt", "authorIdentitiesCheckedAt"}
         record = {key: value for key, value in paper.items() if key not in drop}
         record["detailFile"] = "./data/details/" + year + ".json"
         index.append(record)
     (DATA / "details").mkdir(exist_ok=True)
     for year, records in details.items():
         (DATA / "details" / (year + ".json")).write_text(json.dumps(records, ensure_ascii=False, separators=(",", ":")) + "\n")
+    latest = [p for p in papers if p["date"] >= (NOW - timedelta(days=14)).date().isoformat()]
+    reasons = {p.get("selectionReason", "Pending evidence") for p in latest if p["status"] == "archived"}
+    catalog["pipelineStatus"] = {"trackedCount": len(papers), "visibleCount": len(visible),
+                                 "latestTrackedDate": max((p["date"] for p in papers), default=None),
+                                 "latestVisibleDate": max((p["date"] for p in papers if p["id"] in visible), default=None),
+                                 "recentWindowDays": 14, "recentTrackedCount": len(latest),
+                                 "recentVisibleCount": sum(p["id"] in visible for p in latest),
+                                 "recentMissingReputation": sum(p["scoreComponents"]["reputationSignal"] is None for p in latest),
+                                 "recentMissingReferences": sum(not p.get("referenceEvidenceComplete") for p in latest),
+                                 "recentExclusions": {reason: sum(p["status"] == "archived" and p.get("selectionReason", "Pending evidence") == reason for p in latest) for reason in sorted(reasons)},
+                                 "entered": sum(p["status"] == "active" and previous[p["id"]][1] != "active" for p in papers),
+                                 "exited": sum(p["status"] == "archived" and previous[p["id"]][1] == "active" for p in papers)}
     export = {"updatedAt": STAMP, "papers": index, "links": sorted(edges.values(), key=lambda e: (e["source"], e["target"], e["type"])),
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
-              "discovery": catalog.get("discovery"), "cutoff": cutoff, "policyVersion": policy["version"],
+              "discovery": catalog.get("discovery"), "huggingFaceDiscovery": catalog.get("huggingFaceDiscovery"), "cutoff": cutoff, "policyVersion": policy["version"],
               "recentMonths": policy["recentMonths"], "categoryCutoffs": policy.get("categoryCutoffs", {}),
-              "visibleCount": sum(p["status"] != "archived" for p in papers), "selectionCalibration": catalog["selectionCalibration"]}
+              "visibleCount": sum(p["status"] != "archived" for p in papers), "selectionCalibration": catalog["selectionCalibration"],
+              "pipelineStatus": catalog["pipelineStatus"]}
     (DATA / "papers.json").write_text(json.dumps(export, ensure_ascii=False, separators=(",", ":")) + "\n")
     if changes:
         with (DATA / "history.jsonl").open("a") as history:
             history.write(json.dumps({"at": STAMP, "policyVersion": catalog["policy"]["version"], "changes": changes}, separators=(",", ":")) + "\n")
     print("Exported", len(papers), "papers,", len(edges), "links,", len(changes), "score or membership changes.")
+    print("Pipeline:", json.dumps(catalog["pipelineStatus"], sort_keys=True))
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+            summary.write("## Research atlas update\n\n| Stage | Result |\n| --- | --- |\n")
+            for label, result in catalog["pipelineStatus"].items():
+                summary.write("| " + label + " | " + str(result) + " |\n")
+            for stage in ("discovery", "huggingFaceDiscovery", "authorRefresh", "refresh"):
+                summary.write("\n**" + stage + "**: `" + json.dumps(catalog.get(stage, {})) + "`\n")
 
 
 def build():
@@ -491,6 +665,7 @@ def main():
     try:
         if args.discover:
             discover(catalog, args.limit)
+            discover_huggingface(catalog)
         if args.refresh:
             refresh_author_reputation(catalog)
             refresh_citations(catalog)
