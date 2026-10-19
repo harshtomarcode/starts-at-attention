@@ -101,17 +101,27 @@ exhaustive census of AI research.
 
 ## Data and ranking
 
-- `data/catalog.json`: canonical metadata, abstracts, source links, references,
-  selection status, score evidence, and policy.
-- `data/papers.json`: graph export; no abstracts.
-- `data/details/YYYY.json`: abstracts and detail provenance, loaded on demand.
-- `data/history.jsonl`: score and membership changes.
+- `data/catalog.json`: small canonical manifest, policy, and update cursors.
+- `data/catalog/*.jsonl`: all tracked papers, abstracts, references, scores, and
+  author evidence in chunks of at most 8 MiB. `update.load_catalog()` reconstructs
+  the full catalog; the updater migrates the former single-file format automatically.
+- `data/papers.json`: visible graph only, with the full tracked count; no abstracts.
+- `data/details/YYYY.json`: visible papers' abstracts and provenance, loaded on demand.
+- `data/history/index.json` and `data/history/*.jsonl`: the complete score and
+  membership history, split into chunks of at most 8 MiB.
 - `PLAN.md`: product decisions and learning goals.
 
 No PDFs are stored. Abstract text belongs to the original authors; each record
 links to its source. Third-party papers and abstracts retain their original rights.
 Indexed counts can differ across paper versions and are timestamped.
 Unknown citation counts are never replaced with invented numbers.
+
+Catalog and history manifests list immutable chunks in order. Chunks have content
+hashes in their filenames; the updater writes new chunks before atomically replacing
+the manifest, then removes superseded chunks. Every retained paper is still rescored,
+including those hidden from the website. The compact public export preserves the
+same visible papers and connections while avoiding a download of the entire archive.
+No database, Git LFS, or paid storage service is required.
 
 Solid arrows run from an earlier paper to a later paper that cites it, verified
 against the citation index. Dashed arrows are explicitly curated learning

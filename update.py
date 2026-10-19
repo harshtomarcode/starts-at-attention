@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html import unescape
+import hashlib
 import json
 import math
 import os
@@ -25,6 +26,123 @@ DOMAINS = {"text", "vision", "robotics", "systems", "benchmarks"}
 HEADERS = {"User-Agent": "StartsAtAttention/1.0 (research metadata; github.com/harshtomarcode/starts-at-attention)"}
 REQUEST_STATE = {}
 LAST_REQUEST = {}
+SHARD_BYTES = 8 * 1024 * 1024
+CATALOG_COLLECTIONS = ("papers", "authorMetrics", "authorProfileChecks")
+
+
+def write_jsonl_shards(prefix, records):
+    """Write immutable, byte-bounded chunks before publishing their manifest."""
+    chunks, payload = [], bytearray()
+    for record in records:
+        line = json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
+        if len(line) > SHARD_BYTES:
+            raise ValueError("One " + prefix + " record exceeds the storage chunk limit")
+        if payload and len(payload) + len(line) > SHARD_BYTES:
+            chunks.append(bytes(payload))
+            payload.clear()
+        payload.extend(line)
+    if payload:
+        chunks.append(bytes(payload))
+    paths = []
+    for chunk in chunks:
+        name = prefix + "-" + hashlib.sha256(chunk).hexdigest()[:16] + ".jsonl"
+        path = DATA / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            temporary = path.with_suffix(".tmp")
+            temporary.write_bytes(chunk)
+            temporary.replace(path)
+        elif path.read_bytes() != chunk:
+            raise ValueError("Storage chunk content mismatch: " + name)
+        paths.append(name)
+    return paths
+
+
+def load_catalog():
+    """Read the current manifest or the original single-file catalog."""
+    catalog = json.loads((DATA / "catalog.json").read_text(encoding="utf-8"))
+    storage = catalog.pop("storage", None)
+    if storage is None:
+        return catalog
+    if storage.get("version") != 1 or set(storage.get("collections", {})) != set(CATALOG_COLLECTIONS):
+        raise ValueError("Unsupported catalog storage format")
+    for field, paths in storage["collections"].items():
+        if not isinstance(paths, list) or len(paths) != len(set(paths)):
+            raise ValueError("Invalid catalog chunk list: " + field)
+        result = [] if field == "papers" else {}
+        for name in paths:
+            if not re.fullmatch(r"catalog/" + field + r"-[0-9a-f]{16}\.jsonl", name):
+                raise ValueError("Invalid catalog chunk path")
+            content = (DATA / name).read_bytes()
+            if len(content) > SHARD_BYTES or hashlib.sha256(content).hexdigest()[:16] != Path(name).stem.rsplit("-", 1)[-1]:
+                raise ValueError("Damaged catalog chunk: " + name)
+            for line in content.splitlines():
+                record = json.loads(line)
+                if field == "papers":
+                    result.append(record)
+                else:
+                    if not isinstance(record, list) or len(record) != 2 or not isinstance(record[0], str) or record[0] in result:
+                        raise ValueError("Invalid or duplicate " + field + " record")
+                    result[record[0]] = record[1]
+        catalog[field] = result
+    return catalog
+
+
+def save_catalog(catalog):
+    """Keep all evidence while atomically replacing only the small manifest."""
+    previous = json.loads((DATA / "catalog.json").read_text(encoding="utf-8")) if (DATA / "catalog.json").exists() else {}
+    old_paths = {name for paths in previous.get("storage", {}).get("collections", {}).values() for name in paths}
+    manifest = {key: value for key, value in catalog.items() if key not in CATALOG_COLLECTIONS}
+    collections = {}
+    for field in CATALOG_COLLECTIONS:
+        records = catalog.get(field, []) if field == "papers" else catalog.get(field, {}).items()
+        collections[field] = write_jsonl_shards("catalog/" + field, records)
+    manifest["storage"] = {"version": 1, "collections": collections}
+    payload = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    if len(payload) > SHARD_BYTES:
+        raise ValueError("Catalog metadata exceeds the storage chunk limit")
+    temporary = DATA / "catalog.json.tmp"
+    temporary.write_bytes(payload)
+    temporary.replace(DATA / "catalog.json")
+    current = {name for paths in collections.values() for name in paths}
+    for name in old_paths - current:
+        if re.fullmatch(r"catalog/(?:papers|authorMetrics|authorProfileChecks)-[0-9a-f]{16}\.jsonl", name):
+            (DATA / name).unlink(missing_ok=True)
+
+
+def append_history(event=None):
+    """Append complete events to bounded history chunks, migrating the legacy log."""
+    index = DATA / "history" / "index.json"
+    legacy = DATA / "history.jsonl"
+    previous = []
+    if index.exists():
+        manifest = json.loads(index.read_text(encoding="utf-8"))
+        if manifest.get("version") != 1:
+            raise ValueError("Unsupported history storage format")
+        previous = manifest["chunks"]
+        if any(not re.fullmatch(r"history/events-[0-9a-f]{16}\.jsonl", name) for name in previous):
+            raise ValueError("Invalid history chunk path")
+        for name in (previous if legacy.exists() else previous[-1:]):
+            payload = (DATA / name).read_bytes()
+            if len(payload) > SHARD_BYTES or hashlib.sha256(payload).hexdigest()[:16] != Path(name).stem.rsplit("-", 1)[-1]:
+                raise ValueError("Damaged history chunk: " + name)
+        if event is None:
+            legacy.unlink(missing_ok=True)
+            return
+        content = (DATA / previous[-1]).read_bytes() if previous else b""
+    else:
+        content = legacy.read_bytes() if legacy.exists() else b""
+    records = [json.loads(line) for line in content.splitlines()]
+    if event is not None:
+        records.append(event)
+    chunks = previous[:-1] + write_jsonl_shards("history/events", records)
+    index.parent.mkdir(exist_ok=True)
+    temporary = index.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"version": 1, "chunks": chunks}, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(index)
+    legacy.unlink(missing_ok=True)
+    for name in set(previous) - set(chunks):
+        (DATA / name).unlink(missing_ok=True)
 
 
 def request_bytes(request):
@@ -821,6 +939,8 @@ def score_and_export(catalog):
     details = {}
     index = []
     for paper in catalog["papers"]:
+        if paper["id"] not in visible:
+            continue
         year = paper["date"][:4]
         details.setdefault(year, {})[paper["id"]] = {"abstract": paper.get("abstract"), "metadataSource": paper.get("metadataSource"), "dateBasis": paper.get("dateBasis"), "affiliationSource": paper.get("affiliationSource")}
         drop = {"abstract", "referencedPaperIds", "referencedArxivIds", "semanticScholarAliases", "metadataSource", "affiliationSource", "releaseDateSource", "referenceEvidenceComplete", "semanticScholarAuthors", "authorIdentitiesUpdatedAt", "authorIdentitiesCheckedAt"}
@@ -832,6 +952,9 @@ def score_and_export(catalog):
     (DATA / "details").mkdir(exist_ok=True)
     for year, records in details.items():
         (DATA / "details" / (year + ".json")).write_text(json.dumps(records, ensure_ascii=False, separators=(",", ":")) + "\n")
+    for path in (DATA / "details").glob("[0-9][0-9][0-9][0-9].json"):
+        if path.stem not in details:
+            path.unlink()
     latest = [p for p in papers if p["date"] >= (NOW - timedelta(days=14)).date().isoformat()]
     reasons = {p.get("selectionReason", "Pending evidence") for p in latest if p["status"] == "archived"}
     catalog["pipelineStatus"] = {"trackedCount": len(papers), "visibleCount": len(visible),
@@ -844,7 +967,9 @@ def score_and_export(catalog):
                                  "recentExclusions": {reason: sum(p["status"] == "archived" and p.get("selectionReason", "Pending evidence") == reason for p in latest) for reason in sorted(reasons)},
                                  "entered": sum(p["status"] == "active" and previous[p["id"]][1] != "active" for p in papers),
                                  "exited": sum(p["status"] == "archived" and previous[p["id"]][1] == "active" for p in papers)}
-    export = {"updatedAt": STAMP, "papers": index, "links": sorted(edges.values(), key=lambda e: (e["source"], e["target"], e["type"])),
+    export_links = sorted((e for e in edges.values() if e["source"] in visible and e["target"] in visible),
+                          key=lambda e: (e["source"], e["target"], e["type"]))
+    export = {"updatedAt": STAMP, "papers": index, "links": export_links, "trackedCount": len(papers),
               "scoreDescription": catalog["scoreDescription"], "refresh": catalog.get("refresh"),
               "discovery": catalog.get("discovery"), "huggingFaceDiscovery": catalog.get("huggingFaceDiscovery"),
               "openAlexRefresh": catalog.get("openAlexRefresh"), "requestState": catalog.get("requestState"), "cutoff": cutoff, "policyVersion": policy["version"],
@@ -853,9 +978,8 @@ def score_and_export(catalog):
               "pipelineStatus": catalog["pipelineStatus"]}
     (DATA / "papers.json").write_text(json.dumps(export, ensure_ascii=False, separators=(",", ":")) + "\n")
     if changes:
-        with (DATA / "history.jsonl").open("a") as history:
-            history.write(json.dumps({"at": STAMP, "policyVersion": catalog["policy"]["version"], "changes": changes}, separators=(",", ":")) + "\n")
-    print("Exported", len(papers), "papers,", len(edges), "links,", len(changes), "score or membership changes.")
+        append_history({"at": STAMP, "policyVersion": catalog["policy"]["version"], "changes": changes})
+    print("Exported", len(index), "visible papers of", len(papers), "tracked,", len(export_links), "links,", len(changes), "score or membership changes.")
     print("Pipeline:", json.dumps(catalog["pipelineStatus"], sort_keys=True))
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
@@ -873,7 +997,14 @@ def build():
     public_data = destination / "data"
     public_data.mkdir(exist_ok=True)
     shutil.copy2(DATA / "papers.json", public_data / "papers.json")
-    shutil.copytree(DATA / "details", public_data / "details", dirs_exist_ok=True)
+    public_details = public_data / "details"
+    public_details.mkdir(exist_ok=True)
+    detail_files = list((DATA / "details").glob("[0-9][0-9][0-9][0-9].json"))
+    for path in detail_files:
+        shutil.copy2(path, public_details / path.name)
+    for path in public_details.glob("[0-9][0-9][0-9][0-9].json"):
+        if path.name not in {source.name for source in detail_files}:
+            path.unlink()
     print("Static site ready in dist/ (canonical catalog and history are not in the public export).")
 
 
@@ -890,7 +1021,7 @@ def main():
     if args.build and not args.discover and not args.refresh:
         build()
         return 0
-    catalog = json.loads((DATA / "catalog.json").read_text())
+    catalog = load_catalog()
     validate(catalog)
     REQUEST_STATE = catalog.setdefault("requestState", {})
     for state in REQUEST_STATE.values():
@@ -910,9 +1041,8 @@ def main():
     score_and_export(catalog)
     if args.discover or args.refresh:
         catalog["lastRun"] = {"at": STAMP, "discovery": args.discover, "citationRefresh": args.refresh}
-    temporary = DATA / "catalog.json.tmp"
-    temporary.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n")
-    temporary.replace(DATA / "catalog.json")
+    save_catalog(catalog)
+    append_history()
     if args.build:
         build()
     return 0
