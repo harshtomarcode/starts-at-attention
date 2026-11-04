@@ -8,8 +8,12 @@ Public graph: **[Starts at Attention](https://harshtomarcode.github.io/starts-at
 
 The entire page is the graph. Hover to inspect a paper, click to trace its lineage,
 double-click to read the original, drag a bubble to stretch its connections, drag
-the background to pan, and scroll through time. Each screen spans about seven months,
-with Text/LLMs centered and milestone captions on the right. Hold Control/Command
+the background to pan, and scroll through time. Quiet periods span about seven months
+per screen; crowded months expand to give their bubbles room within each category.
+Text/LLMs stay centered, with milestone captions on the right. Monthly overviews
+continue beyond the last milestone using the current visible selection; October
+2026 also has a sourced summary of agent optimization, prefill, and research evaluation.
+Hold Control/Command
 while scrolling to zoom. Double-click empty space or press Home to return to
 Attention Is All You Need. Arrow keys move between papers; Enter opens the selected source.
 Reduced-motion settings disable the ambient wobble. Category names across the top

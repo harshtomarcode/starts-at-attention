@@ -211,3 +211,9 @@ Keep the existing linear score equation and category factors. Raise category-adj
 Daily updates failed at the Git push step after the single catalog exceeded GitHub's 100 MiB file limit. Preserve the entire archive in compact JSONL chunks capped at 8 MiB, with a small `data/catalog.json` manifest. Split the growing history log the same way. Publish new chunks before replacing each manifest and verify their content hashes when reading them. No Git LFS, paid service, or Git history rewrite is needed.
 
 The migration preserves all 19,364 previously saved papers, author evidence, update cursors, and 48 history events. Export only visible papers and their connections to the website while continuing to rescore the full archive. Before recovery, this reduces the graph download from 37.1 MB to 3.0 MB and abstract files to 1.0 MB combined, with the same 665 visible papers and 7,991 connections. Selection rules and monthly density limits remain unchanged.
+
+## Readable recent months and current overviews — November 3, 2026
+
+Crowded months now expand according to bubble sizes, the number of papers in the densest category, and available lane width. Quiet periods retain the seven-month scale. Bubble placement, month labels, zoom, and chapter selection use the same calendar mapping. Increase bubble separation and leave the latest papers near the middle of the final screen.
+
+Continue the right-hand narrative with monthly overviews drawn from the visible selection after the last manual milestone. October 2026 gets an abstract-grounded overview of batched GEPA optimization (2610.36774), TokenGate prefill (2610.26754), and FrontierCS 2 research evaluation (2610.29932). Later months update from the selected papers automatically.
