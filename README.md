@@ -18,6 +18,8 @@ while scrolling to zoom. Double-click empty space or press Home to return to
 Attention Is All You Need. Arrow keys move between papers; Enter opens the selected source.
 Reduced-motion settings disable the ambient wobble. Category names across the top
 are hidden; bubble colors still identify the lanes.
+Labels stay anchored while bubbles move; hover reveals the full title without
+reshuffling neighboring labels.
 
 The tracked catalog grows independently of the visible graph. Selection uses a
 650-paper guide with room to grow and shrink, normally around 600–700 papers.
