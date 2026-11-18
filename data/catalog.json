@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-17T21:04:09.916827+00:00",
+  "updatedAt": "2026-11-18T20:41:40.403091+00:00",
   "policy": {
     "version": 6,
     "cutoff": 11.4086,
@@ -309,20 +309,20 @@
   "lastDiscoveryAt": "2026-09-12T00:00:00+00:00",
   "refresh": {
     "provider": "Semantic Scholar",
-    "matched": 0,
-    "checked": 0,
-    "requested": 34279,
-    "totalEligible": 36514,
+    "matched": 700,
+    "checked": 700,
+    "requested": 34851,
+    "totalEligible": 37086,
     "notDue": 2235,
     "budget": 1000,
     "complete": false,
     "rateLimited": true,
     "error": "Citation provider HTTP 429",
-    "remaining": 34279,
-    "at": "2026-11-17T21:04:09.916827+00:00"
+    "remaining": 34151,
+    "at": "2026-11-18T20:41:40.403091+00:00"
   },
   "lastRun": {
-    "at": "2026-11-17T21:04:09.916827+00:00",
+    "at": "2026-11-18T20:41:40.403091+00:00",
     "discovery": true,
     "citationRefresh": true
   },
@@ -334,18 +334,18 @@
   },
   "discovery": {
     "source": "DataCite / arXiv",
-    "scanned": 2494,
-    "added": 1072,
-    "skipped": 318,
+    "scanned": 2268,
+    "added": 572,
+    "skipped": 266,
     "windowComplete": true,
-    "totalInWindow": 2494,
+    "totalInWindow": 2268,
     "error": null,
     "rateLimited": false,
-    "windowBegin": "2026-11-13",
-    "windowEnd": "2026-11-17",
-    "latestPublicationDate": "2026-11-16",
+    "windowBegin": "2026-11-14",
+    "windowEnd": "2026-11-18",
+    "latestPublicationDate": "2026-11-17",
     "nextOffset": null,
-    "at": "2026-11-17T21:04:09.916827+00:00"
+    "at": "2026-11-18T20:41:40.403091+00:00"
   },
   "citationEnrichment": {
     "at": "2026-09-08T01:22:30.827023+00:00",
@@ -361,20 +361,20 @@
     "reason": "Expand recent systems and LLM learning coverage; retain factual citations separately from editorial prerequisites."
   },
   "authorRefresh": {
-    "at": "2026-11-17T21:04:09.916827+00:00",
-    "requestedPapers": 35771,
+    "at": "2026-11-18T20:41:40.403091+00:00",
+    "requestedPapers": 35642,
     "checkedPapers": 0,
     "matchedPapers": 0,
-    "requestedProfiles": 37977,
+    "requestedProfiles": 39877,
     "checkedProfiles": 0,
     "matchedProfiles": 0,
     "paperBudget": 500,
     "profileBudget": 5000,
     "cachedProfiles": 29224,
-    "error": "<urlopen error api.semanticscholar.org is cooling down until 2026-11-17T22:04:37.506508+00:00>"
+    "error": "<urlopen error api.semanticscholar.org is cooling down until 2026-11-18T21:43:27.398288+00:00>"
   },
   "selectionCalibration": {
-    "at": "2026-11-17T21:04:09.916827+00:00",
+    "at": "2026-11-18T20:41:40.403091+00:00",
     "targetVisible": 650,
     "visibleCount": 660,
     "baseCutoff": 11.4086,
@@ -420,79 +420,79 @@
       "limit": 40,
       "months": {
         "2026-09": {
-          "baseCutoff": 78.8449,
+          "baseCutoff": 79.7628,
           "categoryCutoffs": {
-            "systems": 19.711225,
-            "text": 78.8449,
-            "vision": 86.72939,
-            "robotics": 70.96041,
-            "benchmarks": 74.902655
+            "systems": 19.9407,
+            "text": 79.7628,
+            "vision": 87.73908,
+            "robotics": 71.78652,
+            "benchmarks": 75.77466
           },
-          "visibleCount": 40
+          "visibleCount": 39
         },
         "2026-10": {
-          "baseCutoff": 87.5491,
+          "baseCutoff": 87.4246,
           "categoryCutoffs": {
-            "systems": 21.887275,
-            "text": 87.5491,
-            "vision": 96.30401,
-            "robotics": 78.79419,
-            "benchmarks": 83.171645
+            "systems": 21.85615,
+            "text": 87.4246,
+            "vision": 96.16706,
+            "robotics": 78.68214,
+            "benchmarks": 83.05337
           },
           "visibleCount": 36
         },
         "2026-11": {
-          "baseCutoff": 23.1511,
+          "baseCutoff": 29.5073,
           "categoryCutoffs": {
-            "systems": 5.787775,
-            "text": 23.1511,
-            "vision": 25.46621,
-            "robotics": 20.83599,
-            "benchmarks": 21.993545
+            "systems": 7.376825,
+            "text": 29.5073,
+            "vision": 32.45803,
+            "robotics": 26.55657,
+            "benchmarks": 28.031935
           },
-          "visibleCount": 37
+          "visibleCount": 38
         }
       }
     },
     "categoryCounts": {
       "benchmarks": 62,
       "robotics": 50,
-      "systems": 170,
-      "text": 243,
-      "vision": 135
+      "systems": 171,
+      "text": 240,
+      "vision": 137
     }
   },
   "pipelineStatus": {
-    "trackedCount": 36515,
+    "trackedCount": 37087,
     "visibleCount": 660,
-    "latestTrackedDate": "2026-11-16",
-    "latestVisibleDate": "2026-11-12",
+    "latestTrackedDate": "2026-11-17",
+    "latestVisibleDate": "2026-11-17",
     "recentWindowDays": 14,
-    "recentTrackedCount": 5449,
-    "recentVisibleCount": 22,
-    "recentMissingReputation": 5262,
-    "recentMissingReferences": 5112,
+    "recentTrackedCount": 5467,
+    "recentVisibleCount": 20,
+    "recentMissingReputation": 5190,
+    "recentMissingReferences": 4703,
     "recentExclusions": {
-      "Awaiting qualifying citation or reputation evidence": 2933,
-      "Below category cutoff": 2427,
-      "Below crowded-month category cutoff": 53,
-      "No connection to the visible graph yet": 14
+      "Awaiting qualifying citation or reputation evidence": 2794,
+      "Below category cutoff": 2555,
+      "Below crowded-month category cutoff": 86,
+      "No connection to the visible graph yet": 12
     },
-    "entered": 0,
-    "exited": 0
+    "entered": 9,
+    "exited": 9
   },
   "huggingFaceDiscovery": {
     "source": "Hugging Face Daily Papers",
-    "scanned": 172,
-    "added": 2,
+    "scanned": 173,
+    "added": 0,
     "skipped": 0,
     "windowComplete": true,
-    "windowEnd": "2026-11-17",
-    "latestPublicationDate": "2026-11-16",
+    "windowEnd": "2026-11-18",
+    "latestPublicationDate": "2026-11-17",
     "error": null,
     "rateLimited": false,
     "cursor": null,
-    "at": "2026-11-17T21:04:09.916827+00:00"
+    "at": "2026-11-18T20:41:40.403091+00:00"
   },
   "huggingFaceDiscoveryCursor": null,
   "huggingFaceEnrichment": {
@@ -526,46 +526,46 @@
   "requestState": {
     "api.semanticscholar.org": {
       "lastStatus": 429,
-      "lastAttemptAt": "2026-11-17T21:04:37.385641+00:00",
-      "requestsThisRun": 1,
+      "lastAttemptAt": "2026-11-18T20:43:27.307202+00:00",
+      "requestsThisRun": 15,
       "deferredThisRun": 2,
-      "lastSuccessAt": "2026-11-15T18:58:06.791824+00:00",
-      "blockedUntil": "2026-11-17T22:04:37.506508+00:00"
+      "lastSuccessAt": "2026-11-18T20:43:23.041320+00:00",
+      "blockedUntil": "2026-11-18T21:43:27.398288+00:00"
     },
     "api.datacite.org": {
-      "lastAttemptAt": "2026-11-17T21:04:24.214375+00:00",
+      "lastAttemptAt": "2026-11-18T20:41:51.368643+00:00",
       "requestsThisRun": 3,
       "lastStatus": 200,
-      "lastSuccessAt": "2026-11-17T21:04:29.120650+00:00",
+      "lastSuccessAt": "2026-11-18T20:41:53.352437+00:00",
       "deferredThisRun": 0
     },
     "huggingface.co": {
-      "lastAttemptAt": "2026-11-17T21:04:35.785143+00:00",
+      "lastAttemptAt": "2026-11-18T20:42:00.000186+00:00",
       "requestsThisRun": 7,
       "lastStatus": 200,
-      "lastSuccessAt": "2026-11-17T21:04:35.860486+00:00",
+      "lastSuccessAt": "2026-11-18T20:42:00.241766+00:00",
       "deferredThisRun": 0
     },
     "api.openalex.org": {
-      "lastAttemptAt": "2026-11-17T21:04:54.138992+00:00",
+      "lastAttemptAt": "2026-11-18T20:43:44.245049+00:00",
       "requestsThisRun": 14,
       "lastStatus": 200,
-      "lastSuccessAt": "2026-11-17T21:04:54.227724+00:00",
+      "lastSuccessAt": "2026-11-18T20:43:44.444863+00:00",
       "deferredThisRun": 0
     }
   },
   "dataCiteDiscoveryCursor": null,
-  "lastDataCiteDiscoveryAt": "2026-11-17T00:00:00+00:00",
+  "lastDataCiteDiscoveryAt": "2026-11-18T00:00:00+00:00",
   "openAlexRefresh": {
     "provider": "OpenAlex",
-    "at": "2026-11-17T21:04:09.916827+00:00",
-    "requested": 35260,
+    "at": "2026-11-18T20:41:40.403091+00:00",
+    "requested": 35838,
     "checked": 400,
-    "matched": 1,
+    "matched": 227,
     "ambiguous": 0,
-    "rejected": 0,
+    "rejected": 2,
     "budget": 400,
-    "remaining": 34860,
+    "remaining": 35438,
     "rateLimited": false,
     "errors": []
   },
@@ -573,23 +573,23 @@
     "version": 1,
     "collections": {
       "papers": [
-        "catalog/papers-6e2cd2564fc4deab.jsonl",
-        "catalog/papers-e432da63297bcb7f.jsonl",
-        "catalog/papers-6cf413f22a1ed029.jsonl",
-        "catalog/papers-71a1d61e066ddb08.jsonl",
-        "catalog/papers-82894e3391315d00.jsonl",
-        "catalog/papers-bf0c10d3cd121e4e.jsonl",
-        "catalog/papers-792b60af1ef897ab.jsonl",
-        "catalog/papers-305b736fee2204e2.jsonl",
-        "catalog/papers-e5c8fccfcbbdace9.jsonl",
-        "catalog/papers-2b5558bc6d08cb7e.jsonl",
-        "catalog/papers-1ab06af825b5d3a8.jsonl",
-        "catalog/papers-74b4079085008049.jsonl",
-        "catalog/papers-a1459164cc62277c.jsonl",
-        "catalog/papers-cf653a760fc25640.jsonl",
-        "catalog/papers-b062a6f31b24634a.jsonl",
-        "catalog/papers-a928aa9be0a08bbf.jsonl",
-        "catalog/papers-1383c5bfcd137032.jsonl"
+        "catalog/papers-427a370d960c8c55.jsonl",
+        "catalog/papers-1ff74f76bbba31ee.jsonl",
+        "catalog/papers-d5591bf5ca7c2319.jsonl",
+        "catalog/papers-cc80ec49b3aca92f.jsonl",
+        "catalog/papers-d2f482b797df06f8.jsonl",
+        "catalog/papers-004b6065cfc75ae8.jsonl",
+        "catalog/papers-dfde3e947aceb1c1.jsonl",
+        "catalog/papers-fb5d7c17489956ad.jsonl",
+        "catalog/papers-7674445f8fbe585f.jsonl",
+        "catalog/papers-f996df080456c88b.jsonl",
+        "catalog/papers-943a2046ccbff320.jsonl",
+        "catalog/papers-2e1378b34423dbbc.jsonl",
+        "catalog/papers-17e49f62f97d9c13.jsonl",
+        "catalog/papers-b4e7fbc50b0754bd.jsonl",
+        "catalog/papers-1db8b8f8480f127a.jsonl",
+        "catalog/papers-e8364c767361bab8.jsonl",
+        "catalog/papers-c4e0b0f5e4efadd1.jsonl"
       ],
       "authorMetrics": [
         "catalog/authorMetrics-77dabd7efbb188e9.jsonl"
