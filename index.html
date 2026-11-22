@@ -53,6 +53,8 @@ function layout(){
  for(let date=new Date(Date.UTC(new Date(minDate).getUTCFullYear(),new Date(minDate).getUTCMonth(),1));date.getTime()<=maxDate+32*86400000;date.setUTCMonth(date.getUTCMonth()+1)){
   const start=date.getTime(),end=Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,1),papers=state.papers.filter(p=>Date.parse(p.date)>=start&&Date.parse(p.date)<end);let space=monthHeight;
   for(const domain of domains){const group=papers.filter(p=>p.category===domain.id);if(!group.length)continue;const radius=Math.max(...group.map(p=>p.score==null?1.6:1.4+16.6*Math.sqrt(Math.max(0,Math.min(1,p.score/100))))),pitch=radius*2+10,columns=Math.max(1,Math.floor((lane-8+10)/pitch));space=Math.max(space,Math.ceil(group.length/columns)*pitch+12)}
+  // Ease into a slower timeline over the latest year, reaching about 2.5x the space.
+  const recentness=Math.max(0,Math.min(1,1-(maxDate-start)/(365.25*86400000)));space*=1+1.5*recentness;
   timelineMonths.push({start,end,top,height:space});top+=space;
  }
  worldHeight=dateY(maxDate)+height*.55;timeline.style.height=worldHeight*state.zoom+'px';

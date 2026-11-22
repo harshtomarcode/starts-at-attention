@@ -10,6 +10,8 @@ The entire page is the graph. Hover to inspect a paper, click to trace its linea
 double-click to read the original, drag a bubble to stretch its connections, drag
 the background to pan, and scroll through time. Quiet periods span about seven months
 per screen; crowded months expand to give their bubbles room within each category.
+The latest year gradually stretches further, reaching about 2.5 times the vertical
+space near the newest papers so each scroll covers less time.
 Text/LLMs stay centered, with milestone captions on the right. Monthly overviews
 continue beyond the last milestone using the current visible selection; October
 2026 also has a sourced summary of agent optimization, prefill, and research evaluation.
