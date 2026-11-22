@@ -47,6 +47,11 @@ also publishes automated data commits, which do not themselves trigger push work
 Pages uses GitHub Actions as its publishing source. Only the HTML, graph export, and
 abstract detail files are included in the deployed site.
 
+The original ChatGPT-hosted copy is a separate Sites deployment. GitHub Actions
+publish only GitHub Pages. After UI changes, also republish the existing Site using
+the `project_id` in `.openai/hosting.json`; both copies load current paper data from
+GitHub, but that feed does not update the hosted HTML or graph layout.
+
 ## Update daily
 
 ```sh
