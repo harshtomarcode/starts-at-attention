@@ -21,13 +21,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -38,6 +35,15 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
+  # A separate job avoids racing GitHub's artifact metadata after upload.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Publish to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
